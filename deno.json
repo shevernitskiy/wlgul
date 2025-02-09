@@ -12,7 +12,7 @@
     "@std/fs": "jsr:@std/fs@^1.0.11",
     "@std/path": "jsr:@std/path@^1.0.8",
     "@std/toml": "jsr:@std/toml@^1.0.2",
-    "puppeteer": "npm:puppeteer@^24.1.1",
+    "puppeteer": "npm:puppeteer@^24.2.0",
     "spinnies": "npm:spinnies@^0.5.1"
   },
   "exports": "./main.ts",

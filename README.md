@@ -1,12 +1,11 @@
 ## Требования
 
 - [Deno](https://docs.deno.com/runtime/getting_started/installation/) вресии >=2.1
-- git
 
 ## Установка
 
 1. Клонируем репозиторий.
-2. Устанавливаем зависимости `deno install --allow-scripts=npm:puppeteer@^24.1.1`.
+2. Устанавливаем зависимости `deno install --allow-scripts=npm:puppeteer@^24.2.0`.
 3. В корне проекта создаём файл `metadata.toml`, для этого копируем содержимое файла `metadata.example.toml` и вставляем туда свои данные.
 4. В корне проекта создаём файл `.env` на основе `example.env` и вставляем туда свои данные.
 
