@@ -1,0 +1,24 @@
+{
+  "vesion": "0.1.0",
+  "name": "@shevernitskiy/wlgul",
+  "license": "MIT",
+  "lock": false,
+  "tasks": {
+    "start": "deno run -A --env ./src/main.ts"
+  },
+  "imports": {
+    "@std/cli": "jsr:@std/cli@^1.0.12",
+    "@std/fmt": "jsr:@std/fmt@^1.0.5",
+    "@std/fs": "jsr:@std/fs@^1.0.11",
+    "@std/path": "jsr:@std/path@^1.0.8",
+    "@std/toml": "jsr:@std/toml@^1.0.2",
+    "puppeteer": "npm:puppeteer@^24.1.1",
+    "spinnies": "npm:spinnies@^0.5.1"
+  },
+  "exports": "./main.ts",
+  "exclude": ["./node_modules", "./data"],
+  "nodeModulesDir": "auto",
+  "fmt": {
+    "lineWidth": 100
+  }
+}

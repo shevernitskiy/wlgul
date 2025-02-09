@@ -1,0 +1,22 @@
+[record]
+platforms = ["boosty"]
+file = "D:\\videos\\video.mp4"
+title = "Это просто запись стрима"
+description = "Это просто описание записи стрима"
+timecodes = """
+00:00:00 – Заставка с оригинальной озвучкой
+00:13:34 – Начало стрима. Общение
+"""
+preview = "D:\\preview\\image.jpg"
+tags = ["записи стримов"]
+
+
+[shorts]
+platforms = ["tiktok"]
+file = "D:\\videos\\video.mp4"
+title = "Самый невезучий персонаж в игре"
+tags = ["#kingdomcomedeliverance"]
+default_tags = ["#смешныемоменты"]
+description = """
+Привет! Спасибо за просмотр!
+"""
