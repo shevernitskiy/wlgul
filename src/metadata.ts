@@ -25,6 +25,7 @@ export type ShortsMetadata = {
   description: string;
   tags: string[];
   default_tags: string[];
+  yt_playlist: string | null;
 };
 
 export async function getMetadata(

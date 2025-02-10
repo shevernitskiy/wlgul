@@ -1,3 +1,4 @@
+# aviable platforms: boosty
 [record]
 platforms = ["boosty"]
 file = "D:\\videos\\video.mp4"
@@ -10,9 +11,9 @@ timecodes = """
 preview = "D:\\preview\\image.jpg"
 tags = ["записи стримов"]
 
-
+# aviable platrforms: tiktok, vk, youtube
 [shorts]
-platforms = ["vkclip", "tiktok"]
+platforms = ["tiktok", "vk", "youtube"]
 file = "D:\\videos\\video.mp4"
 title = "Самый невезучий персонаж в игре"
 tags = ["#kingdomcomedeliverance"]
@@ -20,3 +21,4 @@ default_tags = ["#смешныемоменты"]
 description = """
 Привет! Спасибо за просмотр!
 """
+yt_playlist = "PLTZz9Mfa8xs-Qwefewfem4lrL0RYPtn" # null if no playlist

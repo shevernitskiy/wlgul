@@ -12,6 +12,7 @@ import type { Script } from "./scripts/script.ts";
 import { Boosty } from "./scripts/boosty.ts";
 import { TikTok } from "./scripts/tiktok.ts";
 import { VkClip } from "./scripts/vkclip.ts";
+import { YoutubeShorts } from "./scripts/youtube-shorts.ts";
 
 if (!Deno.env.get("METADATA")) {
   throw new Error("METADATA env is required");
@@ -31,7 +32,8 @@ export const ScriptsMap: {
   },
   shorts: {
     tiktok: TikTok,
-    vkclip: VkClip,
+    vk: VkClip,
+    youtube: YoutubeShorts,
   },
 };
 
@@ -56,7 +58,7 @@ async function main(): Promise<void> {
     userDataDir: userdata,
     browser: "chrome",
     slowMo: 30, // TODO: pass it from env
-    args: need_login ? [] : [
+    args: need_login ? ["--disable-blink-features=AutomationControlled"] : [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       // "--disable-web-security",
@@ -66,6 +68,10 @@ async function main(): Promise<void> {
   });
 
   if (need_login) {
+    browser.on("disconnected", () => {
+      system("log", "browser disconnected");
+      Deno.exit(0);
+    });
     await login(browser, system);
     await browser.close();
   }
