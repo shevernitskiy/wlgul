@@ -6,11 +6,12 @@ import { parseArgs } from "@std/cli";
 import { login } from "./scripts/login.ts";
 import { getMetadata, type Metadata } from "./metadata.ts";
 import { type Emitter, EventManager } from "./events/event-manager.ts";
-// import { ConsoleHandler2 } from "./events/console-handler2.ts";
-import { ConsoleHandler } from "./events/console-handler.ts";
+import { ConsoleHandler2 } from "./events/console-handler2.ts";
+// import { ConsoleHandler } from "./events/console-handler.ts";
+import type { Script } from "./scripts/script.ts";
 import { Boosty } from "./scripts/boosty.ts";
 import { TikTok } from "./scripts/tiktok.ts";
-import type { Script } from "./scripts/script.ts";
+import { VkClip } from "./scripts/vkclip.ts";
 
 if (!Deno.env.get("METADATA")) {
   throw new Error("METADATA env is required");
@@ -30,10 +31,11 @@ export const ScriptsMap: {
   },
   shorts: {
     tiktok: TikTok,
+    vkclip: VkClip,
   },
 };
 
-export const event_manager = new EventManager({ handlers: [ConsoleHandler] });
+export const event_manager = new EventManager({ handlers: [ConsoleHandler2] });
 export const system: Emitter = (event, text) => event_manager.emit("system", event, text);
 const args = parseArgs<Record<string, string>>(Deno.args);
 const metadata = await getMetadata(args, system);
@@ -54,10 +56,10 @@ async function main(): Promise<void> {
     userDataDir: userdata,
     browser: "chrome",
     slowMo: 30, // TODO: pass it from env
-    args: [
+    args: need_login ? [] : [
       "--no-sandbox",
       "--disable-setuid-sandbox",
-      "--disable-web-security",
+      // "--disable-web-security",
       "--disable-features=IsolateOrigins,site-per-process",
       "--disable-blink-features=AutomationControlled",
     ],
@@ -72,27 +74,23 @@ async function main(): Promise<void> {
   if (args.record) pipelines.push("record");
   if (args.shorts) pipelines.push("shorts");
 
-  const promises: Promise<void>[] = [];
+  // FIXME: parallel not working, maybe beacuse of blocking main thread, consider to use worker
   for (const pipeline of pipelines) {
     system("log", pipeline);
     for (const platform of metadata[pipeline].platforms) {
       const emit: Emitter = (event, text) => event_manager.emit(platform, event, text);
       if (ScriptsMap[pipeline][platform as keyof typeof ScriptsMap[typeof pipeline]]) {
         const script = new ScriptsMap[pipeline][platform](browser, metadata, emit);
-        promises.push(
-          script.run()
-            .then((result) => emit("success", result))
-            .catch((e: Error) => emit("fail", e.message)),
-        );
+        await script.run()
+          .then((result) => emit("success", result))
+          .catch((e: Error) => emit("fail", e.message));
       } else {
         system("fail", `unknown platform: ${platform}`);
       }
     }
   }
-  await Promise.all(promises);
 
   await browser.close();
-
   system("log", "done, exiting...");
 }
 

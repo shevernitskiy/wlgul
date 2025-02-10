@@ -12,7 +12,7 @@ tags = ["записи стримов"]
 
 
 [shorts]
-platforms = ["tiktok"]
+platforms = ["vkclip", "tiktok"]
 file = "D:\\videos\\video.mp4"
 title = "Самый невезучий персонаж в игре"
 tags = ["#kingdomcomedeliverance"]
