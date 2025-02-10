@@ -22,11 +22,7 @@ export class VkClip extends Script {
     await this.newClip();
     await this.attachVideo(this.metadata.file);
     await this.checkUploadStatus();
-    await this.setDescription(
-      `${this.metadata.title} ${this.metadata.tags.join(" ")}\n\n${this.metadata.description}\n${
-        this.metadata.tags.join(" ")
-      } ${this.metadata.default_tags.join(" ")}`,
-    );
+    await this.setDescription(`${this.metadata.title} ${this.metadata.tags.join(" ")}`);
     await this.defferPost();
     const url = await this.getClipUrl();
     await this.savePost();
