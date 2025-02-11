@@ -1,7 +1,7 @@
 # aviable platforms: boosty
 [record]
 platforms = ["boosty"]
-file = "D:\\videos\\video.mp4"
+file = "video.mp4" # file in content dir from .env
 title = "Это просто запись стрима"
 description = "Это просто описание записи стрима"
 timecodes = """
@@ -14,7 +14,7 @@ tags = ["записи стримов"]
 # aviable platrforms: tiktok, vk, youtube
 [shorts]
 platforms = ["tiktok", "vk", "youtube"]
-file = "D:\\videos\\video.mp4"
+file = "videoclip.mp4" # file in content dir from .env
 title = "Самый невезучий персонаж в игре"
 tags = ["#kingdomcomedeliverance"]
 default_tags = ["#смешныемоменты"]

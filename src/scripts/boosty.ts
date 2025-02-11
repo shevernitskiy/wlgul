@@ -202,13 +202,13 @@ export class Boosty extends Script {
           await this.page.keyboard.down("ShiftLeft");
           await this.page.keyboard.press("Home");
           await this.page.keyboard.up("ShiftLeft");
-          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 500)));
+          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
           await this.page.keyboard.down("ControlLeft");
           await this.page.keyboard.press("K");
           await this.page.keyboard.up("ControlLeft");
-          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 500)));
+          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
           await this.page.locator('input[placeholder="Вставьте ссылку"]')
-            .setTimeout(60000)
+            .setTimeout(90000)
             .fill(
               `${config.boosty.url}/posts/${post_id}?t=${timecode.offset}&tmid=${video_id}`,
             );

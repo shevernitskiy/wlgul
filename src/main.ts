@@ -14,13 +14,6 @@ import { TikTok } from "./scripts/tiktok.ts";
 import { VkClip } from "./scripts/vkclip.ts";
 import { YoutubeShorts } from "./scripts/youtube-shorts.ts";
 
-if (!Deno.env.get("METADATA")) {
-  throw new Error("METADATA env is required");
-}
-if (!Deno.env.get("USERDATA")) {
-  throw new Error("USERDATA env is required");
-}
-
 export const ScriptsMap: {
   [key: string]: {
     // deno-lint-ignore no-explicit-any
@@ -40,13 +33,22 @@ export const ScriptsMap: {
 export const event_manager = new EventManager({ handlers: [ConsoleHandler2] });
 export const system: Emitter = (event, text) => event_manager.emit("system", event, text);
 const args = parseArgs<Record<string, string>>(Deno.args);
+
+if (Deno.env.get("WLGUL_DOCKER") && (args.ui || args.login)) {
+  system("fail", "ui mode not awaitable in docker mode");
+}
+
 const metadata = await getMetadata(args, system);
 
 async function main(): Promise<void> {
   system("log", "start");
   let need_login = args.login || false;
 
-  const userdata = normalize(Deno.env.get("USERDATA") || "./data");
+  const userdata = normalize(
+    Deno.env.get("WLGUL_DOCKER") ? "./data" : (
+      Deno.env.get("USERDATA") ?? "./data"
+    ),
+  );
   if (!(existsSync(userdata))) {
     await Deno.mkdir(userdata);
     need_login = true;
