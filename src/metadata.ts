@@ -10,11 +10,12 @@ export type Metadata = {
 
 export type RecordMetadata = {
   platforms: string[];
-  file: string;
+  files: string[];
   title: string;
   description: string | null;
   timecodes: string | null;
   preview: string | null;
+  teaser: string | null;
   tags: string[];
 };
 
@@ -60,17 +61,21 @@ export async function getMetadata(
   ) as Metadata;
 
   if (args.record) {
-    if (!metadata.record.file) {
+    if (!metadata.record.files) {
       emit("fail", "metadata file is empty");
       Deno.exit(1);
     }
-    const record_file = join(content_path, metadata.record.file);
-    if (!(existsSync(record_file))) {
-      emit("fail", `file not found: ${record_file}`);
-      Deno.exit(1);
-    } else {
-      metadata.record.file = record_file;
+    const files: string[] = [];
+    for (const file of metadata.record.files) {
+      const record_file = join(content_path, file);
+      if (!(existsSync(record_file))) {
+        emit("fail", `file not found: ${record_file}`);
+        Deno.exit(1);
+      } else {
+        files.push(record_file);
+      }
     }
+    metadata.record.files = files;
     if (metadata.record.preview) {
       const preview_file = join(content_path, metadata.record.preview);
       if (!(existsSync(preview_file))) {
@@ -80,8 +85,17 @@ export async function getMetadata(
         metadata.record.preview = preview_file;
       }
     }
+    if (metadata.record.teaser) {
+      const teaser_file = join(content_path, metadata.record.teaser);
+      if (!(existsSync(teaser_file))) {
+        emit("fail", `incorrect teaser file: ${teaser_file}`);
+        Deno.exit(1);
+      } else {
+        metadata.record.teaser = teaser_file;
+      }
+    }
     if (!metadata.record.title) {
-      metadata.record.title = `File - ${basename(metadata.record.file)}`;
+      metadata.record.title = `File - ${basename(metadata.record.files[0])}`;
     }
   }
 

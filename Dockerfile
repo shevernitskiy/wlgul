@@ -11,7 +11,6 @@ RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyri
 
 RUN which google-chrome-stable || true
 
-
 WORKDIR /app
 COPY deno.json deno.json
 COPY src ./src

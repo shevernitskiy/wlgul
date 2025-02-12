@@ -1,5 +1,5 @@
 import type { Page } from "puppeteer";
-import { parseTimecodes } from "../common.ts";
+// import { parseTimecodes } from "../common.ts";
 import { Script } from "./script.ts";
 import { config } from "../config.ts";
 import type { RecordMetadata } from "../metadata.ts";
@@ -33,11 +33,14 @@ export class Boosty extends Script {
     if (this.metadata.title) {
       await this.setTitle(this.metadata.title);
     }
-    if (this.metadata.file) {
-      await this.attachVideo(this.metadata.file);
+    if (this.metadata.files) {
+      await this.attachVideos(this.metadata.files);
     }
-    if (this.metadata.preview && this.metadata.file) {
+    if (this.metadata.preview && this.metadata.files.length > 0) {
       await this.setPreview(this.metadata.preview);
+    }
+    if (this.metadata.teaser) {
+      await this.setTeaser(this.metadata.teaser);
     }
     if (this.metadata.tags) {
       await this.addTags(this.metadata.tags);
@@ -48,15 +51,19 @@ export class Boosty extends Script {
     await this.page.waitForNavigation();
     await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
 
-    const { post_id, video_id } = await this.getPostIdAndVideoId();
+    // const { post_id, videos_id } = await this.getPostIdAndVideoId();
+    const { post_id } = await this.getPostIdAndVideoId();
 
-    if (this.metadata.description || this.metadata.timecodes) {
+    // TODO: fix timecodes
+    // if (this.metadata.description || this.metadata.timecodes) {
+    if (this.metadata.description) {
       await this.editPost();
-      await this.setDescription(this.metadata, post_id, video_id);
+      // await this.setDescription(this.metadata, post_id, videos_id);
+      await this.setDescription(this.metadata);
       await this.savePost();
     }
 
-    return `post_id: ${post_id}, video_id: ${video_id}`;
+    return `https://boosty.to/${config.boosty.channel}/posts/${post_id}`;
   }
 
   async setTitle(title: string): Promise<void> {
@@ -64,50 +71,57 @@ export class Boosty extends Script {
     await this.page.locator('[data-test-id="TITLE"]').fill(title);
   }
 
-  async attachVideo(file: string): Promise<void> {
-    this.emit("progress", "attaching video");
-    await this.page.locator(
-      '[data-test-id="RICHEDITOR:ROOT"] div[class^=ToolbarButton_wrapper]:nth-of-type(2) button',
-    ).click();
-    const [file_input, _] = await Promise.all([
-      this.page.waitForFileChooser(),
-      this.page.locator(
-        "button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]",
-      ).click(),
-    ]);
-    if (!file_input) {
-      throw new Error("file input not found");
-    } else {
-      this.emit("progress", "uploading file");
+  async attachVideos(files: string[]): Promise<void> {
+    for (let i = 0; i < files.length; i++) {
+      this.emit("progress", `attaching video ${i + 1}/${files.length}`);
+      await this.page.locator(
+        '[data-test-id="RICHEDITOR:ROOT"] div[class^=ToolbarButton_wrapper]:nth-of-type(2) button',
+      ).click();
+      const [file_input, _] = await Promise.all([
+        this.page.waitForFileChooser(),
+        this.page.locator(
+          "button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]",
+        ).click(),
+      ]);
+      if (!file_input) {
+        throw new Error("file input not found");
+      }
+      await file_input.accept([files[i]]);
+      await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
     }
-    await file_input.accept([file]);
+
+    this.emit("progress", "uploading files");
 
     let uploadCompleted = false;
     while (!uploadCompleted) {
       const [precentage, _filename, size, video] = await Promise.all([
-        this.page.$eval(
+        this.page.$$eval(
           "[class^=FileBlock_headerPercentage]",
-          (el) => el.textContent,
-        ).catch(() => null),
-        this.page.$eval(
+          (els) => els.map((el) => el.textContent),
+        ).catch(() => [null]),
+        this.page.$$eval(
           "[class^=FileBlock_fileName]",
-          (el) => el.textContent,
-        ).catch(() => null),
-        this.page.$eval(
+          (els) => els.map((el) => el.textContent),
+        ).catch(() => [null]),
+        this.page.$$eval(
           "[class^=FileBlock_size]",
-          (el) => el.textContent,
-        ).catch(() => null),
-        this.page.$eval(
+          (els) => els.map((el) => el.textContent),
+        ).catch(() => [null]),
+        this.page.$$eval(
           "[class^=Video_video]",
-          (el) => el.textContent,
-        ).catch(() => null),
+          (els) => els.map((el) => el.textContent),
+        ).catch(() => [null]),
       ]);
 
-      if (precentage) {
-        this.emit("progress", `uploading ${precentage} (${size})`);
+      if (precentage[0]) {
+        const lines: string[] = [];
+        for (let i = 0; i < precentage.length; i++) {
+          lines.push(`[${i + 1}] ${precentage[i]} (${size[i].replaceAll(" ", "")})`);
+        }
+        this.emit("progress", `uploading ${lines.join(", ")}`);
       }
 
-      if (video && !precentage) {
+      if (video.length === files.length) {
         this.emit("progress", "uploaded");
         uploadCompleted = true;
       } else {
@@ -117,15 +131,30 @@ export class Boosty extends Script {
   }
 
   async setPreview(file: string): Promise<void> {
-    this.emit("progress", "setting preview");
+    await this.page.waitForSelector("button[class*=VideoPreviewEditor_button]");
+    const els = await this.page.$$("button[class*=VideoPreviewEditor_button]");
+    for (let i = 0; i < els.length; i++) {
+      this.emit("progress", `setting preview ${i + 1}/${els.length}`);
+      const [file_input, _] = await Promise.all([
+        this.page.waitForFileChooser(),
+        els[i].click(),
+      ]);
+      if (!file_input) {
+        throw new Error("preview file input not found");
+      }
+      await file_input.accept([file]);
+      await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
+    }
+  }
+
+  async setTeaser(file: string): Promise<void> {
+    this.emit("progress", `setting teaser`);
     const [file_input, _] = await Promise.all([
       this.page.waitForFileChooser(),
-      this.page.locator(
-        "button[class*=VideoPreviewEditor_button]",
-      ).click(),
+      this.page.locator('button[data-test-id="TEASERPHOTOBUTTON:button"]').click(),
     ]);
     if (!file_input) {
-      throw new Error("preview file input not found");
+      throw new Error("teaser file input not found");
     }
     await file_input.accept([file]);
   }
@@ -151,25 +180,25 @@ export class Boosty extends Script {
 
   async getPostIdAndVideoId(): Promise<{
     post_id: string | null;
-    video_id: string | null;
+    videos_id: string[] | null;
   }> {
-    const [post_id, video_id] = await Promise.all([
+    const [post_id, videos_id] = await Promise.all([
       this.page.$eval(
         '[data-test-id="COMMON_POST:ROOT"]',
         (el) => el.attributes["data-post-id"]?.value,
       ),
-      this.page.$eval(
+      this.page.$$eval(
         "[class^=VideoBlock_root]",
-        (el) => (el.id ?? "").replace("video-", ""),
+        (els) => els.map((el) => (el.id ?? "").replace("video-", "")),
       ),
-    ]).catch(() => [null, null]);
-    return { post_id, video_id: video_id === "" ? null : video_id };
+    ]).catch(() => [null, [null]]);
+    return { post_id, videos_id: videos_id[0] === "" ? null : videos_id };
   }
 
   async setDescription(
     metadata: RecordMetadata,
-    post_id: string | null,
-    video_id: string | null,
+    // post_id: string | null,
+    // videos_id: string[] | null,
   ): Promise<void> {
     this.emit("progress", "setting description");
     await this.page.locator(
@@ -184,39 +213,39 @@ export class Boosty extends Script {
         await this.page.keyboard.type(line.replaceAll("\r", "").trim());
       }
     }
-    if (metadata.timecodes) {
-      this.emit("progress", "setting description timecodes");
-      const timecodes = parseTimecodes(metadata.timecodes);
+    // if (metadata.timecodes) {
+    //   this.emit("progress", "setting description timecodes");
+    //   const timecodes = parseTimecodes(metadata.timecodes);
 
-      if (timecodes.length > 1) {
-        await this.page.keyboard.press("Enter");
-        await this.page.keyboard.press("Enter");
-        await this.page.keyboard.type("Таймкоды:");
-      }
-      i = 0;
-      for (const timecode of timecodes) {
-        this.emit("progress", `setting description timecodes ${++i}/${timecodes.length}`);
-        await this.page.keyboard.press("Enter");
-        await this.page.keyboard.type(timecode.time);
-        if (post_id && video_id) {
-          await this.page.keyboard.down("ShiftLeft");
-          await this.page.keyboard.press("Home");
-          await this.page.keyboard.up("ShiftLeft");
-          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-          await this.page.keyboard.down("ControlLeft");
-          await this.page.keyboard.press("K");
-          await this.page.keyboard.up("ControlLeft");
-          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-          await this.page.locator('input[placeholder="Вставьте ссылку"]')
-            .setTimeout(90000)
-            .fill(
-              `${config.boosty.url}/posts/${post_id}?t=${timecode.offset}&tmid=${video_id}`,
-            );
-          await this.page.keyboard.press("Enter");
-          await this.page.keyboard.type(` – ${timecode.desc}`);
-        }
-      }
-    }
+    //   if (timecodes.length > 1) {
+    //     await this.page.keyboard.press("Enter");
+    //     await this.page.keyboard.press("Enter");
+    //     await this.page.keyboard.type("Таймкоды:");
+    //   }
+    //   i = 0;
+    //   for (const timecode of timecodes) {
+    //     this.emit("progress", `setting description timecodes ${++i}/${timecodes.length}`);
+    //     await this.page.keyboard.press("Enter");
+    //     await this.page.keyboard.type(timecode.time);
+    //     if (post_id && video_id) {
+    //       await this.page.keyboard.down("ShiftLeft");
+    //       await this.page.keyboard.press("Home");
+    //       await this.page.keyboard.up("ShiftLeft");
+    //       await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
+    //       await this.page.keyboard.down("ControlLeft");
+    //       await this.page.keyboard.press("K");
+    //       await this.page.keyboard.up("ControlLeft");
+    //       await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
+    //       await this.page.locator('input[placeholder="Вставьте ссылку"]')
+    //         .setTimeout(90000)
+    //         .fill(
+    //           `${config.boosty.url}/posts/${post_id}?t=${timecode.offset}&tmid=${video_id}`,
+    //         );
+    //       await this.page.keyboard.press("Enter");
+    //       await this.page.keyboard.type(` – ${timecode.desc}`);
+    //     }
+    //   }
+    // }
     await this.page.keyboard.press("Enter");
   }
 

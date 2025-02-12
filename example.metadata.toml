@@ -1,14 +1,15 @@
 # aviable platforms: boosty
 [record]
 platforms = ["boosty"]
-file = "video.mp4" # file in content dir from .env
+files = ["videoclip1.mp4", "videoclip2.mp4"] # files in content dir from .env
 title = "Это просто запись стрима"
 description = "Это просто описание записи стрима"
 timecodes = """
 00:00:00 – Заставка с оригинальной озвучкой
 00:13:34 – Начало стрима. Общение
 """
-preview = "D:\\preview\\image.jpg"
+preview = "image.jpg"
+teaser = "teaser.jpg"
 tags = ["записи стримов"]
 
 # aviable platrforms: tiktok, vk, youtube
