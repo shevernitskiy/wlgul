@@ -59,7 +59,7 @@ async function main(): Promise<void> {
     headless: !(need_login || args.ui || Deno.env.get("UI") === "true"),
     userDataDir: userdata,
     browser: "chrome",
-    slowMo: 30, // TODO: pass it from env
+    slowMo: 50, // TODO: pass it from env
     args: need_login ? ["--disable-blink-features=AutomationControlled"] : [
       "--no-sandbox",
       "--disable-setuid-sandbox",

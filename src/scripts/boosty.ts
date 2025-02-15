@@ -77,6 +77,9 @@ export class Boosty extends Script {
       await this.page.locator(
         '[data-test-id="RICHEDITOR:ROOT"] div[class^=ToolbarButton_wrapper]:nth-of-type(2) button',
       ).click();
+      await this.page.waitForSelector(
+        "button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]",
+      );
       const [file_input, _] = await Promise.all([
         this.page.waitForFileChooser(),
         this.page.locator(
@@ -148,6 +151,7 @@ export class Boosty extends Script {
   }
 
   async setTeaser(file: string): Promise<void> {
+    await this.page.waitForSelector('button[data-test-id="TEASERPHOTOBUTTON:button"]');
     this.emit("progress", `setting teaser`);
     const [file_input, _] = await Promise.all([
       this.page.waitForFileChooser(),
@@ -157,6 +161,7 @@ export class Boosty extends Script {
       throw new Error("teaser file input not found");
     }
     await file_input.accept([file]);
+    await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
   }
 
   async defferPost(): Promise<void> {
