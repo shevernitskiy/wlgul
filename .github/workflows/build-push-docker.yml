@@ -3,7 +3,7 @@ name: Build and push Docker image
 on:
   workflow_dispatch:
   push:
-    branches: ["image-build-and-push"]
+    branches: ["main"]
 
 jobs:
   build-push-docker:
@@ -29,7 +29,6 @@ jobs:
         IMAGE_NAME: ${{ github.repository }}
       with:
         context: .
-        file: ./dockerfile
-        target: final
+        file: ./Dockerfile
         push: true
         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
