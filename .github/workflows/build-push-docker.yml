@@ -28,7 +28,7 @@ jobs:
         REGISTRY: ghcr.io
         IMAGE_NAME: ${{ github.repository }}
       with:
-        context: ${GITHUB_WORKFLOW}
+        context: ${{ GITHUB_WORKFLOW }}
         file: ./dockerfile
         target: final
         push: true
