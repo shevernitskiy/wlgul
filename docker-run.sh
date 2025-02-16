@@ -45,4 +45,4 @@ docker run -t --env-file .env \
   --mount type=bind,source="$METADATA_ABSOLUTE",target=/app/metadata.toml \
   --mount type=bind,source="$USERDATA_ABSOLUTE",target=/app/data \
   --mount type=bind,source="$CONTENT_ABSOLUTE",target=/app/content \
-  wlgul . "$@"
+  ghcr.io/shevernitskiy/wlgul:latest . "$@"
