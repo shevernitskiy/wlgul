@@ -1,5 +1,5 @@
 import type { Page } from "puppeteer";
-// import { parseTimecodes } from "../common.ts";
+import { parseTimecodes } from "../common.ts";
 import { Script } from "./script.ts";
 import { config } from "../config.ts";
 import type { RecordMetadata } from "../metadata.ts";
@@ -57,6 +57,11 @@ export class Boosty extends Script {
         this.errors.push(`failed to add tags, ${err.message}`);
       });
     }
+    if (this.metadata.description) {
+      await this.setDescription(this.metadata).catch((err) => {
+        this.errors.push(`failed to set description, ${err.message}`);
+      });
+    }
 
     await this.defferPost().catch((err) => {
       throw new Error("failed to deffer post", err);
@@ -67,26 +72,23 @@ export class Boosty extends Script {
 
     await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 5000)));
 
-    // const { post_id, videos_id } = await this.getPostIdAndVideoId();
-    const { post_id } = await this.getPostIdAndVideoId().catch(() => {
+    const { post_id, videos_id: _videos_id } = await this.getPostIdAndVideoId().catch(() => {
       this.errors.push("failed to get post id and video id");
-      return { post_id: "unknown", videos_id: "unknown" };
+      return { post_id: "unknown", videos_id: ["unknown"] };
     });
 
     // TODO: fix timecodes
-    // if (this.metadata.description || this.metadata.timecodes) {
-    if (this.metadata.description) {
-      await this.editPost().catch((err) => {
-        throw new Error("failed enter editing post post page", err);
-      });
-      // await this.setDescription(this.metadata, post_id, videos_id);
-      await this.setDescription(this.metadata).catch((err) => {
-        this.errors.push(`failed to set description 2nd time, ${err.message}`);
-      });
-      await this.savePost().catch((err) => {
-        this.errors.push(`failed to save post with description 2nd time, ${err.message}`);
-      });
-    }
+    // if (this.metadata.timecodes) {
+    //   await this.editPost().catch((err) => {
+    //     throw new Error("failed enter editing post post page", err);
+    //   });
+    //   await this.setTimecodes(this.metadata, post_id, videos_id).catch((err) => {
+    //     this.errors.push(`failed to set description 2nd time, ${err.message}`);
+    //   });
+    //   await this.savePost().catch((err) => {
+    //     this.errors.push(`failed to save post with description 2nd time, ${err.message}`);
+    //   });
+    // }
 
     return `https://boosty.to/${config.boosty.channel}/posts/${post_id}`;
   }
@@ -227,12 +229,10 @@ export class Boosty extends Script {
 
   async setDescription(
     metadata: RecordMetadata,
-    // post_id: string | null,
-    // videos_id: string[] | null,
   ): Promise<void> {
     this.emit("progress", "setting description");
     await this.page.locator(
-      '[data-test-id="RICHEDITOR:EDITOR_JS"] .codex-editor .codex-editor__redactor .ce-block:nth-last-of-type(1)',
+      '[data-test-id="RICHEDITOR:EDITOR_JS"] .ce-block:nth-last-of-type(1)',
     ).click();
     let i = 0;
     if (metadata.description) {
@@ -243,40 +243,48 @@ export class Boosty extends Script {
         await this.page.keyboard.type(line.replaceAll("\r", "").trim());
       }
     }
-    // if (metadata.timecodes) {
-    //   this.emit("progress", "setting description timecodes");
-    //   const timecodes = parseTimecodes(metadata.timecodes);
-
-    //   if (timecodes.length > 1) {
-    //     await this.page.keyboard.press("Enter");
-    //     await this.page.keyboard.press("Enter");
-    //     await this.page.keyboard.type("Таймкоды:");
-    //   }
-    //   i = 0;
-    //   for (const timecode of timecodes) {
-    //     this.emit("progress", `setting description timecodes ${++i}/${timecodes.length}`);
-    //     await this.page.keyboard.press("Enter");
-    //     await this.page.keyboard.type(timecode.time);
-    //     if (post_id && video_id) {
-    //       await this.page.keyboard.down("ShiftLeft");
-    //       await this.page.keyboard.press("Home");
-    //       await this.page.keyboard.up("ShiftLeft");
-    //       await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-    //       await this.page.keyboard.down("ControlLeft");
-    //       await this.page.keyboard.press("K");
-    //       await this.page.keyboard.up("ControlLeft");
-    //       await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-    //       await this.page.locator('input[placeholder="Вставьте ссылку"]')
-    //         .setTimeout(90000)
-    //         .fill(
-    //           `${config.boosty.url}/posts/${post_id}?t=${timecode.offset}&tmid=${video_id}`,
-    //         );
-    //       await this.page.keyboard.press("Enter");
-    //       await this.page.keyboard.type(` – ${timecode.desc}`);
-    //     }
-    //   }
-    // }
     await this.page.keyboard.press("Enter");
+    await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
+  }
+
+  async setTimecodes(
+    metadata: RecordMetadata,
+    post_id: string | null,
+    videos_id: string[] | null,
+  ): Promise<void> {
+    if (metadata.timecodes) {
+      this.emit("progress", "setting description timecodes");
+      const timecodes = parseTimecodes(metadata.timecodes);
+
+      if (timecodes.length > 1) {
+        await this.page.keyboard.press("Enter");
+        await this.page.keyboard.press("Enter");
+        await this.page.keyboard.type("Таймкоды:");
+      }
+      let i = 0;
+      for (const timecode of timecodes) {
+        this.emit("progress", `setting description timecodes ${++i}/${timecodes.length}`);
+        await this.page.keyboard.press("Enter");
+        await this.page.keyboard.type(timecode.time);
+        if (post_id && videos_id && videos_id[0]) {
+          await this.page.keyboard.down("ShiftLeft");
+          await this.page.keyboard.press("Home");
+          await this.page.keyboard.up("ShiftLeft");
+          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
+          await this.page.keyboard.down("ControlLeft");
+          await this.page.keyboard.press("K");
+          await this.page.keyboard.up("ControlLeft");
+          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
+          await this.page.locator('input[placeholder="Вставьте ссылку"]')
+            .setTimeout(90000)
+            .fill(
+              `${config.boosty.url}/posts/${post_id}?t=${timecode.offset}&tmid=${videos_id[0]}`,
+            );
+          await this.page.keyboard.press("Enter");
+          await this.page.keyboard.type(` – ${timecode.desc}`);
+        }
+      }
+    }
   }
 
   async savePost(): Promise<void> {
