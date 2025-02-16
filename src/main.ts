@@ -90,7 +90,12 @@ async function main(): Promise<void> {
       if (ScriptsMap[pipeline][platform as keyof typeof ScriptsMap[typeof pipeline]]) {
         const script = new ScriptsMap[pipeline][platform](browser, metadata, emit);
         await script.run()
-          .then((result) => emit("success", result))
+          .then((result) => {
+            emit("success", result);
+            if (script.errors.length > 0) {
+              emit("log", `Errors:\n${script.errors.join("\n")}`);
+            }
+          })
           .catch((e: Error) => emit("fail", e.message));
       } else {
         system("fail", `unknown platform: ${platform}`);

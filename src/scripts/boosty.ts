@@ -28,39 +28,64 @@ export class Boosty extends Script {
       throw new Error("not logged in, skipping");
     }
 
-    await this.newPost();
+    await this.newPost().catch((err) => {
+      throw new Error("failed to create new post", err);
+    });
 
     if (this.metadata.title) {
-      await this.setTitle(this.metadata.title);
+      await this.setTitle(this.metadata.title).catch((err) => {
+        this.errors.push(`failed to set title, ${err.message}`);
+      });
     }
     if (this.metadata.files) {
-      await this.attachVideos(this.metadata.files);
+      await this.attachVideos(this.metadata.files).catch((err) => {
+        this.errors.push(`failed to attach videos, ${err.message}`);
+      });
     }
     if (this.metadata.preview && this.metadata.files.length > 0) {
-      await this.setPreview(this.metadata.preview);
+      await this.setPreview(this.metadata.preview).catch((err) => {
+        this.errors.push(`failed to set preview, ${err.message}`);
+      });
     }
     if (this.metadata.teaser) {
-      await this.setTeaser(this.metadata.teaser);
+      await this.setTeaser(this.metadata.teaser).catch((err) => {
+        this.errors.push(`failed to set teaser, ${err.message}`);
+      });
     }
     if (this.metadata.tags) {
-      await this.addTags(this.metadata.tags);
+      await this.addTags(this.metadata.tags).catch((err) => {
+        this.errors.push(`failed to add tags, ${err.message}`);
+      });
     }
 
-    await this.defferPost();
-    await this.savePost();
-    await this.page.waitForNavigation();
-    await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
+    await this.defferPost().catch((err) => {
+      throw new Error("failed to deffer post", err);
+    });
+    await this.savePost().catch((err) => {
+      this.errors.push(`failed to save post with main info, ${err.message}`);
+    });
+
+    await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 5000)));
 
     // const { post_id, videos_id } = await this.getPostIdAndVideoId();
-    const { post_id } = await this.getPostIdAndVideoId();
+    const { post_id } = await this.getPostIdAndVideoId().catch(() => {
+      this.errors.push("failed to get post id and video id");
+      return { post_id: "unknown", videos_id: "unknown" };
+    });
 
     // TODO: fix timecodes
     // if (this.metadata.description || this.metadata.timecodes) {
     if (this.metadata.description) {
-      await this.editPost();
+      await this.editPost().catch((err) => {
+        throw new Error("failed enter editing post post page", err);
+      });
       // await this.setDescription(this.metadata, post_id, videos_id);
-      await this.setDescription(this.metadata);
-      await this.savePost();
+      await this.setDescription(this.metadata).catch((err) => {
+        this.errors.push(`failed to set description 2nd time, ${err.message}`);
+      });
+      await this.savePost().catch((err) => {
+        this.errors.push(`failed to save post with description 2nd time, ${err.message}`);
+      });
     }
 
     return `https://boosty.to/${config.boosty.channel}/posts/${post_id}`;

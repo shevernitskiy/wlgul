@@ -5,6 +5,7 @@ import type { Metadata } from "../metadata.ts";
 export abstract class Script {
   protected abstract page: Page;
   abstract readonly tag: string;
+  errors: string[] = [];
 
   constructor(
     protected browser: Browser,
