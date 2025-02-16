@@ -3,7 +3,7 @@ name: Build and push Docker image
 on:
   workflow_dispatch:
   push:
-    branches: ["image-build-and-push"]
+    branches: ["fix-ci"]
 
 jobs:
   build-push-docker:
