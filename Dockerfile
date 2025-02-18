@@ -14,6 +14,7 @@ RUN which google-chrome-stable || true
 WORKDIR /app
 COPY deno.json deno.json
 COPY src ./src
+COPY bin ./bin
 
 RUN deno install
 

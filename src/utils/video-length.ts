@@ -7,7 +7,7 @@ export async function getVideoDuration(path: string): Promise<number> {
   if (Deno.build.os !== "windows" && Deno.build.os !== "linux") {
     throw new Error("Unsupported OS to use ffprobe");
   }
-  const ffmpeg_path = normalize(
+  const ffmpeg_path = Deno.env.get("WLGUL_DOCKER") ? "/app/bin/ffprobe" : normalize(
     Deno.build.os === "windows" ? "./bin/ffprobe.exe" : "./bin/ffprobe",
   );
 
