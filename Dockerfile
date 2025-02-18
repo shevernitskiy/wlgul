@@ -15,6 +15,7 @@ WORKDIR /app
 COPY deno.json deno.json
 COPY src ./src
 COPY bin ./bin
+RUN chmod +x ./bin/ffprobe
 
 RUN deno install
 
