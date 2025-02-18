@@ -3,6 +3,8 @@ import { parseTimecodes } from "../common.ts";
 import { Script } from "./script.ts";
 import { config } from "../config.ts";
 import type { RecordMetadata } from "../metadata.ts";
+import { splitTimecodes, type Timecode } from "../utils/timecodes.ts";
+import { getVideoDuration } from "../utils/video-length.ts";
 
 export class Boosty extends Script {
   readonly tag = "boosty";
@@ -42,14 +44,14 @@ export class Boosty extends Script {
         this.errors.push(`failed to attach videos, ${err.message}`);
       });
     }
-    if (this.metadata.preview && this.metadata.files.length > 0) {
-      await this.setPreview(this.metadata.preview).catch((err) => {
-        this.errors.push(`failed to set preview, ${err.message}`);
-      });
-    }
     if (this.metadata.teaser) {
       await this.setTeaser(this.metadata.teaser).catch((err) => {
         this.errors.push(`failed to set teaser, ${err.message}`);
+      });
+    }
+    if (this.metadata.preview && this.metadata.files.length > 0) {
+      await this.setPreview(this.metadata.preview).catch((err) => {
+        this.errors.push(`failed to set preview, ${err.message}`);
       });
     }
     if (this.metadata.tags) {
@@ -57,11 +59,11 @@ export class Boosty extends Script {
         this.errors.push(`failed to add tags, ${err.message}`);
       });
     }
-    if (this.metadata.description) {
-      await this.setDescription(this.metadata).catch((err) => {
-        this.errors.push(`failed to set description, ${err.message}`);
-      });
-    }
+    // if (this.metadata.description) {
+    //   await this.setDescription(this.metadata).catch((err) => {
+    //     this.errors.push(`failed to set description, ${err.message}`);
+    //   });
+    // }
 
     await this.defferPost().catch((err) => {
       throw new Error("failed to deffer post", err);
@@ -72,23 +74,24 @@ export class Boosty extends Script {
 
     await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 5000)));
 
-    const { post_id, videos_id: _videos_id } = await this.getPostIdAndVideoId().catch(() => {
+    const { post_id, videos_id } = await this.getPostIdAndVideoId().catch(() => {
       this.errors.push("failed to get post id and video id");
       return { post_id: "unknown", videos_id: ["unknown"] };
     });
 
-    // TODO: fix timecodes
-    // if (this.metadata.timecodes) {
-    //   await this.editPost().catch((err) => {
-    //     throw new Error("failed enter editing post post page", err);
-    //   });
-    //   await this.setTimecodes(this.metadata, post_id, videos_id).catch((err) => {
-    //     this.errors.push(`failed to set description 2nd time, ${err.message}`);
-    //   });
-    //   await this.savePost().catch((err) => {
-    //     this.errors.push(`failed to save post with description 2nd time, ${err.message}`);
-    //   });
-    // }
+    if (this.metadata.timecodes) {
+      const timecodes = await this.computeTimecodes();
+
+      await this.editPost().catch((err) => {
+        throw new Error("failed enter editing post post page", err);
+      });
+      await this.setTimecodes(timecodes, post_id, videos_id).catch((err) => {
+        this.errors.push(`failed to set description 2nd time, ${err.message}`);
+      });
+      await this.savePost().catch((err) => {
+        this.errors.push(`failed to save post with description 2nd time, ${err.message}`);
+      });
+    }
 
     return `https://boosty.to/${config.boosty.channel}/posts/${post_id}`;
   }
@@ -101,36 +104,34 @@ export class Boosty extends Script {
   async attachVideos(files: string[]): Promise<void> {
     for (let i = 0; i < files.length; i++) {
       this.emit("progress", `attaching video ${i + 1}/${files.length}`);
-      await this.page.locator(
-        '[data-test-id="RICHEDITOR:ROOT"] div[class^=ToolbarButton_wrapper]:nth-of-type(2) button',
-      ).click();
+
+      await this.page.click(
+        '[data-test-id="RICHEDITOR:ROOT"] > [class^=Toolbar_toolbar] > [class^=ToolbarButton_wrapper]:nth-of-type(2) > button',
+      );
       await this.page.waitForSelector(
-        "button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]",
+        '[data-test-id="RICHEDITOR:ROOT"] button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]',
       );
       const [file_input, _] = await Promise.all([
         this.page.waitForFileChooser(),
-        this.page.locator(
-          "button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]",
-        ).click(),
+        this.page.click(
+          '[data-test-id="RICHEDITOR:ROOT"] button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]',
+        ),
       ]);
       if (!file_input) {
         throw new Error("file input not found");
       }
       await file_input.accept([files[i]]);
-      await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
+      this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
+      await this.page.click('[data-test-id="TITLE"]');
     }
 
     this.emit("progress", "uploading files");
 
     let uploadCompleted = false;
     while (!uploadCompleted) {
-      const [precentage, _filename, size, video] = await Promise.all([
+      const [precentage, size, video] = await Promise.all([
         this.page.$$eval(
           "[class^=FileBlock_headerPercentage]",
-          (els) => els.map((el) => el.textContent),
-        ).catch(() => [null]),
-        this.page.$$eval(
-          "[class^=FileBlock_fileName]",
           (els) => els.map((el) => el.textContent),
         ).catch(() => [null]),
         this.page.$$eval(
@@ -143,7 +144,7 @@ export class Boosty extends Script {
         ).catch(() => [null]),
       ]);
 
-      if (precentage[0]) {
+      if (precentage.filter(Boolean).length > 0) {
         const lines: string[] = [];
         for (let i = 0; i < precentage.length; i++) {
           lines.push(`[${i + 1}] ${precentage[i]} (${size[i].replaceAll(" ", "")})`);
@@ -178,11 +179,11 @@ export class Boosty extends Script {
   }
 
   async setTeaser(file: string): Promise<void> {
-    await this.page.waitForSelector('button[data-test-id="TEASERPHOTOBUTTON:button"]');
     this.emit("progress", `setting teaser`);
+    await this.page.waitForSelector('button[data-test-id="TEASERPHOTOBUTTON:button"]');
     const [file_input, _] = await Promise.all([
       this.page.waitForFileChooser(),
-      this.page.locator('button[data-test-id="TEASERPHOTOBUTTON:button"]').click(),
+      this.page.click('button[data-test-id="TEASERPHOTOBUTTON:button"]'),
     ]);
     if (!file_input) {
       throw new Error("teaser file input not found");
@@ -248,42 +249,45 @@ export class Boosty extends Script {
   }
 
   async setTimecodes(
-    metadata: RecordMetadata,
+    timecodes: Timecode[][],
     post_id: string | null,
     videos_id: string[] | null,
   ): Promise<void> {
-    if (metadata.timecodes) {
-      this.emit("progress", "setting description timecodes");
-      const timecodes = parseTimecodes(metadata.timecodes);
+    if (!this.metadata.timecodes || !post_id || !videos_id) return;
+    this.emit("progress", "setting description timecodes");
 
-      if (timecodes.length > 1) {
-        await this.page.keyboard.press("Enter");
-        await this.page.keyboard.press("Enter");
-        await this.page.keyboard.type("Таймкоды:");
-      }
-      let i = 0;
-      for (const timecode of timecodes) {
-        this.emit("progress", `setting description timecodes ${++i}/${timecodes.length}`);
-        await this.page.keyboard.press("Enter");
+    await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 5000)));
+
+    const els = await this.page.$$(
+      '[data-test-id="RICHEDITOR:EDITOR_JS"] [class^=Video_video]',
+    );
+
+    for (let i = 0; i < els.length; i++) {
+      if (!timecodes.at(i) || !videos_id.at(i)) return;
+      els[i].click();
+      await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
+      await this.page.keyboard.press("Enter");
+      await this.page.keyboard.press("Backspace");
+      for (const timecode of timecodes[i]) {
         await this.page.keyboard.type(timecode.time);
-        if (post_id && videos_id && videos_id[0]) {
-          await this.page.keyboard.down("ShiftLeft");
-          await this.page.keyboard.press("Home");
-          await this.page.keyboard.up("ShiftLeft");
-          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-          await this.page.keyboard.down("ControlLeft");
-          await this.page.keyboard.press("K");
-          await this.page.keyboard.up("ControlLeft");
-          await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-          await this.page.locator('input[placeholder="Вставьте ссылку"]')
-            .setTimeout(90000)
-            .fill(
-              `${config.boosty.url}/posts/${post_id}?t=${timecode.offset}&tmid=${videos_id[0]}`,
-            );
-          await this.page.keyboard.press("Enter");
-          await this.page.keyboard.type(` – ${timecode.desc}`);
-        }
+        await this.page.keyboard.down("ShiftLeft");
+        await this.page.keyboard.press("Home");
+        await this.page.keyboard.up("ShiftLeft");
+        await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
+        await this.page.keyboard.down("ControlLeft");
+        await this.page.keyboard.press("K");
+        await this.page.keyboard.up("ControlLeft");
+        await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
+        await this.page.locator(".ce-inline-toolbar .ce-inline-tool-input-wrapper input")
+          .setTimeout(90000)
+          .fill(
+            `${config.boosty.url}/posts/${post_id}?t=${timecode.offset}&tmid=${videos_id[i]}`,
+          );
+        await this.page.keyboard.press("Enter");
+        await this.page.keyboard.type(` – ${timecode.desc}`);
+        await this.page.keyboard.press("Enter");
       }
+      await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
     }
   }
 
@@ -312,5 +316,20 @@ export class Boosty extends Script {
     this.emit("progress", "making new post");
     await this.page.locator('[data-test-id="BLOGLAYOUTWRAPPER:NEW_POST_BUTTON"]')
       .click();
+  }
+
+  async computeTimecodes(): Promise<Timecode[][]> {
+    if (this.metadata.files.length === 0 || !this.metadata.timecodes) {
+      return [];
+    } else if (this.metadata.files.length === 1) {
+      return [parseTimecodes(this.metadata.timecodes)];
+    } else {
+      const parsed = parseTimecodes(this.metadata.timecodes);
+      const videos_length = (await Promise.allSettled(
+        this.metadata.files.map((file) => getVideoDuration(file)),
+      )).map((res) => res.status === "fulfilled" ? res.value : Infinity);
+
+      return splitTimecodes(videos_length, parsed);
+    }
   }
 }
