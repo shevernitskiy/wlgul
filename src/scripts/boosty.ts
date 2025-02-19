@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-window
 import type { Page } from "puppeteer";
 import { parseTimecodes } from "../common.ts";
 import { Script } from "./script.ts";
@@ -59,39 +60,20 @@ export class Boosty extends Script {
         this.errors.push(`failed to add tags, ${err.message}`);
       });
     }
-    // if (this.metadata.description) {
-    //   await this.setDescription(this.metadata).catch((err) => {
-    //     this.errors.push(`failed to set description, ${err.message}`);
-    //   });
-    // }
+    if (this.metadata.timecodes) {
+      const timecodes = await this.computeTimecodes();
+
+      await this.setTimecodes(timecodes).catch((err) => {
+        this.errors.push(`failed to set description 2nd time, ${err.message}`);
+      });
+    }
 
     await this.defferPost().catch((err) => {
       throw new Error("failed to deffer post", err);
     });
-    await this.savePost().catch((err) => {
+    const post_id = await this.savePost().catch((err) => {
       this.errors.push(`failed to save post with main info, ${err.message}`);
     });
-
-    await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 5000)));
-
-    const { post_id, videos_id } = await this.getPostIdAndVideoId().catch(() => {
-      this.errors.push("failed to get post id and video id");
-      return { post_id: "unknown", videos_id: ["unknown"] };
-    });
-
-    if (this.metadata.timecodes) {
-      const timecodes = await this.computeTimecodes();
-
-      await this.editPost().catch((err) => {
-        throw new Error("failed enter editing post post page", err);
-      });
-      await this.setTimecodes(timecodes, post_id, videos_id).catch((err) => {
-        this.errors.push(`failed to set description 2nd time, ${err.message}`);
-      });
-      await this.savePost().catch((err) => {
-        this.errors.push(`failed to save post with description 2nd time, ${err.message}`);
-      });
-    }
 
     return `https://boosty.to/${config.boosty.channel}/posts/${post_id}`;
   }
@@ -250,10 +232,8 @@ export class Boosty extends Script {
 
   async setTimecodes(
     timecodes: Timecode[][],
-    post_id: string | null,
-    videos_id: string[] | null,
   ): Promise<void> {
-    if (!this.metadata.timecodes || !post_id || !videos_id) return;
+    if (!this.metadata.timecodes) return;
     this.emit("progress", "setting description timecodes");
 
     await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 5000)));
@@ -263,38 +243,30 @@ export class Boosty extends Script {
     );
 
     for (let i = 0; i < els.length; i++) {
-      if (!timecodes.at(i) || !videos_id.at(i)) return;
+      if (!timecodes.at(i)) return;
       els[i].click();
       await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
       await this.page.keyboard.press("Enter");
       await this.page.keyboard.press("Backspace");
       for (const timecode of timecodes[i]) {
-        await this.page.keyboard.type(timecode.time);
-        await this.page.keyboard.down("ShiftLeft");
-        await this.page.keyboard.press("Home");
-        await this.page.keyboard.up("ShiftLeft");
-        await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-        await this.page.keyboard.down("ControlLeft");
-        await this.page.keyboard.press("K");
-        await this.page.keyboard.up("ControlLeft");
-        await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-        await this.page.locator(".ce-inline-toolbar .ce-inline-tool-input-wrapper input")
-          .setTimeout(90000)
-          .fill(
-            `${config.boosty.url}/posts/${post_id}?t=${timecode.offset}&tmid=${videos_id[i]}`,
-          );
+        await this.page.keyboard.type(`${timecode.time} – ${timecode.desc}`);
         await this.page.keyboard.press("Enter");
-        await this.page.keyboard.type(` – ${timecode.desc}`);
-        await this.page.keyboard.press("Enter");
+        await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
       }
-      await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
     }
   }
 
-  async savePost(): Promise<void> {
+  async savePost(): Promise<string> {
+    this.emit("progress", "saving post");
+    this.page.locator(
+      "[class^=PopupContent_block] [class^=MessagePreviewPopup_buttons] button[class*=ContainedButton_colorDefault]",
+    ).setTimeout(5000).click().catch(() => this.emit("progress", "no timecodes popup"));
     await this.page.locator(
       'button[data-test-id="COMMON_CONTAINERS_BLOGPOST_BLOGPOSTFORM:PUBLISH_BUTTON"]',
     ).click();
+    await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 5000)));
+
+    return await this.page.evaluate(() => window.location.href.split("/").at(-1) ?? "unknown");
   }
 
   async editPost(): Promise<void> {
