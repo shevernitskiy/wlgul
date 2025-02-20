@@ -264,7 +264,7 @@ export class Boosty extends Script {
     await this.page.locator(
       'button[data-test-id="COMMON_CONTAINERS_BLOGPOST_BLOGPOSTFORM:PUBLISH_BUTTON"]',
     ).click();
-    await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 5000)));
+    await this.page.waitForNavigation();
 
     return await this.page.evaluate(() => window.location.href.split("/").at(-1) ?? "unknown");
   }
