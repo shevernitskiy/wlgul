@@ -27,7 +27,7 @@ export function offset(time: string): number {
   return offset;
 }
 
-export function duration(length: number): string {
+export function time(length: number): string {
   const hours = ~~(length / 3600);
   const minutes = ~~((length - hours * 3600) / 60);
   const seconds = ~~(length - hours * 3600 - minutes * 60);
@@ -38,7 +38,20 @@ export function duration(length: number): string {
   }`;
 }
 
-export function splitTimecodes(videos: number[], timecodes: Timecode[]): Timecode[][] {
+export function splitTimecodes(
+  videos: number[],
+  timecodes: Timecode[],
+  start_offset: string,
+): Timecode[][] {
+  const start_offset_s = offset(start_offset);
+
+  const shifted_timecodes = timecodes.map((item) => {
+    return {
+      ...item,
+      offset: item.offset - start_offset_s,
+    };
+  });
+
   let prev_offset = 0;
   let cur_offset_limit = videos[0];
   let cur_offset_index = 0;
@@ -47,7 +60,11 @@ export function splitTimecodes(videos: number[], timecodes: Timecode[]): Timecod
   const out = [];
   let cur = [];
 
-  for (const item of timecodes) {
+  for (const item of shifted_timecodes) {
+    if (item.offset < 0) {
+      prev_item = item;
+      continue;
+    }
     if (item.offset > cur_offset_limit) {
       cur_offset_index++;
       prev_offset = cur_offset_limit;
@@ -57,12 +74,12 @@ export function splitTimecodes(videos: number[], timecodes: Timecode[]): Timecod
       }
       out.push(cur);
       cur = [];
-      cur.push({ ...prev_item!, offset: 0, time: duration(0) });
+      cur.push({ ...prev_item!, offset: 0, time: time(0) });
     }
     cur.push({
       ...item,
       offset: item.offset - prev_offset,
-      time: duration(item.offset - prev_offset),
+      time: time(item.offset - prev_offset),
     });
     prev_item = item;
   }
@@ -70,5 +87,6 @@ export function splitTimecodes(videos: number[], timecodes: Timecode[]): Timecod
   if (cur.length > 0) {
     out.push(cur);
   }
+
   return out;
 }

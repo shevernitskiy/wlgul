@@ -17,6 +17,10 @@ export type RecordMetadata = {
   preview: string | null;
   teaser: string | null;
   tags: string[];
+  boosty: {
+    start: string;
+    limit: string;
+  };
 };
 
 export type ShortsMetadata = {
@@ -96,6 +100,12 @@ export async function getMetadata(
     }
     if (!metadata.record.title) {
       metadata.record.title = `File - ${basename(metadata.record.files[0])}`;
+    }
+    if (!metadata.record.boosty) {
+      metadata.record.boosty = {
+        start: "00:00:00",
+        limit: "24:00:00",
+      };
     }
   }
 

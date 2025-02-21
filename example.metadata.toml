@@ -1,7 +1,7 @@
 # aviable platforms: boosty
 [record]
 platforms = ["boosty"]
-files = ["videoclip1.mp4", "videoclip2.mp4"] # files in content dir from .env
+files = ["videoclip1.mp4"] # file in content dir from .env
 title = "Это просто запись стрима"
 description = "Это просто описание записи стрима"
 timecodes = """
@@ -11,6 +11,7 @@ timecodes = """
 preview = "image.jpg"
 teaser = "teaser.jpg"
 tags = ["записи стримов"]
+boosty = { start = "00:00:00", limit = "05:00:00" }
 
 # aviable platrforms: tiktok, vk, youtube
 [shorts]

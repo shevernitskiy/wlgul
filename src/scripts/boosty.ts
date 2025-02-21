@@ -5,12 +5,14 @@ import { Script } from "./script.ts";
 import { config } from "../config.ts";
 import type { RecordMetadata } from "../metadata.ts";
 import { splitTimecodes, type Timecode } from "../utils/timecodes.ts";
-import { getVideoDuration } from "../utils/video-length.ts";
+import { type FilePartsInfo, splitVideoByLimits } from "../utils/video-duration.ts";
 
 export class Boosty extends Script {
   readonly tag = "boosty";
   protected page!: Page;
   private metadata!: RecordMetadata;
+
+  private splitted_files: FilePartsInfo[] = [];
 
   async run(): Promise<string> {
     this.emit("progress", "start");
@@ -31,6 +33,10 @@ export class Boosty extends Script {
       throw new Error("not logged in, skipping");
     }
 
+    this.splitted_files = await this.splitFiles().catch((err) => {
+      throw new Error("failed to split files", err);
+    });
+
     await this.newPost().catch((err) => {
       throw new Error("failed to create new post", err);
     });
@@ -41,7 +47,7 @@ export class Boosty extends Script {
       });
     }
     if (this.metadata.files) {
-      await this.attachVideos(this.metadata.files).catch((err) => {
+      await this.attachVideos(this.splitted_files).catch((err) => {
         this.errors.push(`failed to attach videos, ${err.message}`);
       });
     }
@@ -61,7 +67,7 @@ export class Boosty extends Script {
       });
     }
     if (this.metadata.timecodes) {
-      const timecodes = await this.computeTimecodes();
+      const timecodes = this.computeTimecodes();
 
       await this.setTimecodes(timecodes).catch((err) => {
         this.errors.push(`failed to set description 2nd time, ${err.message}`);
@@ -83,7 +89,7 @@ export class Boosty extends Script {
     await this.page.locator('[data-test-id="TITLE"]').fill(title);
   }
 
-  async attachVideos(files: string[]): Promise<void> {
+  async attachVideos(files: FilePartsInfo[]): Promise<void> {
     for (let i = 0; i < files.length; i++) {
       this.emit("progress", `attaching video ${i + 1}/${files.length}`);
 
@@ -102,7 +108,7 @@ export class Boosty extends Script {
       if (!file_input) {
         throw new Error("file input not found");
       }
-      await file_input.accept([files[i]]);
+      await file_input.accept([files[i].file]);
       this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
       await this.page.click('[data-test-id="TITLE"]');
     }
@@ -290,18 +296,33 @@ export class Boosty extends Script {
       .click();
   }
 
-  async computeTimecodes(): Promise<Timecode[][]> {
-    if (this.metadata.files.length === 0 || !this.metadata.timecodes) {
+  computeTimecodes(): Timecode[][] {
+    if (this.splitted_files.length === 0 || !this.metadata.timecodes) {
       return [];
-    } else if (this.metadata.files.length === 1) {
+    } else if (this.splitted_files.length === 1) {
       return [parseTimecodes(this.metadata.timecodes)];
     } else {
       const parsed = parseTimecodes(this.metadata.timecodes);
-      const videos_length = (await Promise.allSettled(
-        this.metadata.files.map((file) => getVideoDuration(file)),
-      )).map((res) => res.status === "fulfilled" ? res.value : Infinity);
-
-      return splitTimecodes(videos_length, parsed);
+      return splitTimecodes(
+        this.splitted_files.map((file) => file.duration),
+        parsed,
+        this.metadata.boosty.start,
+      );
     }
+  }
+
+  async splitFiles(): Promise<FilePartsInfo[]> {
+    const out: FilePartsInfo[] = [];
+    for (const file of this.metadata.files) {
+      const parts = await splitVideoByLimits(
+        file,
+        this.metadata.boosty.limit,
+        this.metadata.boosty.start,
+        this.tag,
+        (text) => this.emit("progress", text),
+      );
+      out.push(...parts);
+    }
+    return out;
   }
 }
