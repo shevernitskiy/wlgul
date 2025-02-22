@@ -30,7 +30,9 @@ export type ShortsMetadata = {
   description: string;
   tags: string[];
   default_tags: string[];
-  yt_playlist: string | null;
+  youtube: {
+    playlist: string | null;
+  };
 };
 
 if (!Deno.env.get("METADATA")) {

@@ -23,4 +23,4 @@ default_tags = ["#смешныемоменты"]
 description = """
 Привет! Спасибо за просмотр!
 """
-yt_playlist = "PLTZz9Mfa8xs-Qwefewfem4lrL0RYPtn" # null if no playlist
+youtube = { playlist = "PLTZz9Mfa8xs-Qwefewfem4lrL0RYPtn" } # null if no playlist

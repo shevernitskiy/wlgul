@@ -1,10 +1,9 @@
 // deno-lint-ignore-file no-window
 import type { Page } from "puppeteer";
-import { parseTimecodes } from "../common.ts";
-import { Script } from "./script.ts";
+import { Script, type ScriptResult } from "./script.ts";
 import { config } from "../config.ts";
 import type { RecordMetadata } from "../metadata.ts";
-import { splitTimecodes, type Timecode } from "../utils/timecodes.ts";
+import { Timecodes } from "../utils/timecodes.ts";
 import { type FilePartsInfo, splitVideoByLimits } from "../utils/video-duration.ts";
 
 export class Boosty extends Script {
@@ -13,8 +12,9 @@ export class Boosty extends Script {
   private metadata!: RecordMetadata;
 
   private splitted_files: FilePartsInfo[] = [];
+  private timecodes: Timecodes | undefined;
 
-  async run(): Promise<string> {
+  async run(): Promise<ScriptResult> {
     this.emit("progress", "start");
     if (!config.boosty.url) {
       throw new Error("url not set, skipping");
@@ -36,6 +36,9 @@ export class Boosty extends Script {
     this.splitted_files = await this.splitFiles().catch((err) => {
       throw new Error("failed to split files", err);
     });
+    if (this.metadata.timecodes) {
+      this.timecodes = Timecodes.fromText(this.metadata.timecodes);
+    }
 
     await this.newPost().catch((err) => {
       throw new Error("failed to create new post", err);
@@ -66,10 +69,10 @@ export class Boosty extends Script {
         this.errors.push(`failed to add tags, ${err.message}`);
       });
     }
-    if (this.metadata.timecodes) {
-      const timecodes = this.computeTimecodes();
+    if (this.metadata.timecodes && this.timecodes) {
+      // const timecodes = this.computeTimecodes();
 
-      await this.setTimecodes(timecodes).catch((err) => {
+      await this.setTimecodes().catch((err) => {
         this.errors.push(`failed to set description 2nd time, ${err.message}`);
       });
     }
@@ -81,7 +84,17 @@ export class Boosty extends Script {
       this.errors.push(`failed to save post with main info, ${err.message}`);
     });
 
-    return `https://boosty.to/${config.boosty.channel}/posts/${post_id}`;
+    return {
+      summary: [
+        `url: https://boosty.to/${config.boosty.channel}/posts/${post_id}`,
+        `files: ${
+          this.splitted_files.map((item) => {
+            return `${item.file} (${item.time}, offset ${item.offset_in_original})`;
+          }).join(", ")
+        }`,
+      ],
+      errors: this.errors,
+    };
   }
 
   async setTitle(title: string): Promise<void> {
@@ -236,11 +249,14 @@ export class Boosty extends Script {
     await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
   }
 
-  async setTimecodes(
-    timecodes: Timecode[][],
-  ): Promise<void> {
-    if (!this.metadata.timecodes) return;
+  async setTimecodes(): Promise<void> {
+    if (!this.metadata.timecodes || !this.timecodes) return;
     this.emit("progress", "setting description timecodes");
+
+    const timecodes = this.timecodes.toSplitAndShift(
+      this.splitted_files.map((file) => file.duration),
+      this.metadata.boosty.start,
+    );
 
     await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 5000)));
 
@@ -294,21 +310,6 @@ export class Boosty extends Script {
     this.emit("progress", "making new post");
     await this.page.locator('[data-test-id="BLOGLAYOUTWRAPPER:NEW_POST_BUTTON"]')
       .click();
-  }
-
-  computeTimecodes(): Timecode[][] {
-    if (this.splitted_files.length === 0 || !this.metadata.timecodes) {
-      return [];
-    } else if (this.splitted_files.length === 1) {
-      return [parseTimecodes(this.metadata.timecodes)];
-    } else {
-      const parsed = parseTimecodes(this.metadata.timecodes);
-      return splitTimecodes(
-        this.splitted_files.map((file) => file.duration),
-        parsed,
-        this.metadata.boosty.start,
-      );
-    }
   }
 
   async splitFiles(): Promise<FilePartsInfo[]> {

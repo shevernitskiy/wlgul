@@ -4,19 +4,6 @@ export type Timecode = {
   offset: number;
 };
 
-export function parseTimecodes(value: string): Timecode[] {
-  const matches = value.matchAll(/(\d+:\d+:\d+) – (.+)/g);
-  const out = Array.from(matches).map((match) => {
-    const [time, desc] = match[0].split(" – ");
-    return {
-      time,
-      desc,
-      offset: offset(time),
-    };
-  });
-  return out;
-}
-
 export function offset(time: string): number {
   let offset = 0;
   let pow = 0;
@@ -38,55 +25,89 @@ export function time(length: number): string {
   }`;
 }
 
-export function splitTimecodes(
-  videos: number[],
-  timecodes: Timecode[],
-  start_offset: string,
-): Timecode[][] {
-  const start_offset_s = offset(start_offset);
+export class Timecodes {
+  parsed: Timecode[] = [];
 
-  const shifted_timecodes = timecodes.map((item) => {
-    return {
-      ...item,
-      offset: item.offset - start_offset_s,
-    };
-  });
+  private constructor(source: string) {
+    this.parseTimecodes(source);
+  }
 
-  let prev_offset = 0;
-  let cur_offset_limit = videos[0];
-  let cur_offset_index = 0;
-  let prev_item: Timecode | undefined = undefined;
+  static fromText(source: string): Timecodes {
+    return new Timecodes(source);
+  }
 
-  const out = [];
-  let cur = [];
-
-  for (const item of shifted_timecodes) {
-    if (item.offset < 0) {
-      prev_item = item;
-      continue;
-    }
-    if (item.offset > cur_offset_limit) {
-      cur_offset_index++;
-      prev_offset = cur_offset_limit;
-      cur_offset_limit += videos[cur_offset_index] ? videos[cur_offset_index] : Infinity;
-      if (cur_offset_index >= videos.length) {
-        cur_offset_index = videos.length - 1;
-      }
-      out.push(cur);
-      cur = [];
-      cur.push({ ...prev_item!, offset: 0, time: time(0) });
-    }
-    cur.push({
-      ...item,
-      offset: item.offset - prev_offset,
-      time: time(item.offset - prev_offset),
+  parseTimecodes(value: string): void {
+    const matches = value.matchAll(/(\d+:\d+:\d+) [–|-] (.+)/g);
+    const out = Array.from(matches).map((match) => {
+      return {
+        time: match[1],
+        desc: match[2],
+        offset: offset(match[1]),
+      };
     });
-    prev_item = item;
+
+    if (out.length === 0) {
+      throw new Error("no timecodes found");
+    }
+
+    this.parsed = out;
   }
 
-  if (cur.length > 0) {
-    out.push(cur);
-  }
+  toSplitAndShift(
+    part_duration: number[],
+    start_offset: string,
+  ): Timecode[][] {
+    if (part_duration.length === 0) {
+      return [];
+    }
 
-  return out;
+    const start_offset_s = offset(start_offset);
+
+    const shifted_timecodes = this.parsed.map((item) => {
+      return {
+        ...item,
+        offset: item.offset - start_offset_s,
+      };
+    });
+
+    let prev_offset = 0;
+    let cur_offset_limit = part_duration[0];
+    let cur_offset_index = 0;
+    let prev_item: Timecode | undefined = undefined;
+
+    const out = [];
+    let cur = [];
+
+    for (const item of shifted_timecodes) {
+      if (item.offset < 0) {
+        prev_item = item;
+        continue;
+      }
+      if (item.offset > cur_offset_limit) {
+        cur_offset_index++;
+        prev_offset = cur_offset_limit;
+        cur_offset_limit += part_duration[cur_offset_index]
+          ? part_duration[cur_offset_index]
+          : Infinity;
+        if (cur_offset_index >= part_duration.length) {
+          cur_offset_index = part_duration.length - 1;
+        }
+        out.push(cur);
+        cur = [];
+        cur.push({ ...prev_item!, offset: 0, time: time(0) });
+      }
+      cur.push({
+        ...item,
+        offset: item.offset - prev_offset,
+        time: time(item.offset - prev_offset),
+      });
+      prev_item = item;
+    }
+
+    if (cur.length > 0) {
+      out.push(cur);
+    }
+
+    return out;
+  }
 }

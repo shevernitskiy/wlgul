@@ -1,5 +1,5 @@
 import type { Page } from "puppeteer";
-import { Script } from "./script.ts";
+import { Script, type ScriptResult } from "./script.ts";
 import { config } from "../config.ts";
 import type { ShortsMetadata } from "../metadata.ts";
 
@@ -8,7 +8,7 @@ export class VkClip extends Script {
   protected page!: Page;
   private metadata!: ShortsMetadata;
 
-  async run(): Promise<string> {
+  async run(): Promise<ScriptResult> {
     this.emit("progress", "start");
 
     if (!config.vk.url) {
@@ -28,7 +28,10 @@ export class VkClip extends Script {
     await this.savePost();
     await this.page.waitForNavigation();
 
-    return url;
+    return {
+      summary: [url],
+      errors: this.errors,
+    };
   }
 
   private async newClip(): Promise<void> {

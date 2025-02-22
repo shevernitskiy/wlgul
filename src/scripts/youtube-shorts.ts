@@ -1,5 +1,5 @@
 import type { Page } from "puppeteer";
-import { Script } from "./script.ts";
+import { Script, type ScriptResult } from "./script.ts";
 import { config } from "../config.ts";
 import type { ShortsMetadata } from "../metadata.ts";
 
@@ -8,7 +8,7 @@ export class YoutubeShorts extends Script {
   protected page!: Page;
   private metadata!: ShortsMetadata;
 
-  async run(): Promise<string> {
+  async run(): Promise<ScriptResult> {
     this.emit("progress", "start");
 
     if (!config.youtube.url) {
@@ -25,8 +25,8 @@ export class YoutubeShorts extends Script {
       ...this.metadata.tags,
       ...this.metadata.default_tags,
     ]);
-    if (this.metadata.yt_playlist) {
-      await this.setPlaylist(this.metadata.yt_playlist);
+    if (this.metadata.youtube.playlist) {
+      await this.setPlaylist(this.metadata.youtube.playlist);
     }
     await this.setKidsRadio();
     await this.checkUploadStatus();
@@ -34,7 +34,10 @@ export class YoutubeShorts extends Script {
     await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
     await this.setPrivate();
     const url = await this.savePost();
-    return url;
+    return {
+      summary: [url],
+      errors: this.errors,
+    };
   }
 
   private async attachVideo(file: string): Promise<void> {

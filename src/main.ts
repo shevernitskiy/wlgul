@@ -8,7 +8,7 @@ import { getMetadata, type Metadata } from "./metadata.ts";
 import { type Emitter, EventManager } from "./events/event-manager.ts";
 import { ConsoleHandler2 } from "./events/console-handler2.ts";
 // import { ConsoleHandler } from "./events/console-handler.ts";
-import type { Script } from "./scripts/script.ts";
+import { printScriptResult, type Script } from "./scripts/script.ts";
 import { Boosty } from "./scripts/boosty.ts";
 import { TikTok } from "./scripts/tiktok.ts";
 import { VkClip } from "./scripts/vkclip.ts";
@@ -90,12 +90,7 @@ async function main(): Promise<void> {
       if (ScriptsMap[pipeline][platform as keyof typeof ScriptsMap[typeof pipeline]]) {
         const script = new ScriptsMap[pipeline][platform](browser, metadata, emit);
         await script.run()
-          .then((result) => {
-            emit("success", result);
-            if (script.errors.length > 0) {
-              emit("log", `Errors:\n${script.errors.join("\n")}`);
-            }
-          })
+          .then((result) => emit("success", printScriptResult(result)))
           .catch((e: Error) => emit("fail", e.message));
       } else {
         system("fail", `unknown platform: ${platform}`);

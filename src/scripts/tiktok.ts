@@ -1,5 +1,5 @@
 import type { Page } from "puppeteer";
-import { Script } from "./script.ts";
+import { Script, type ScriptResult } from "./script.ts";
 import { config } from "../config.ts";
 import type { ShortsMetadata } from "../metadata.ts";
 
@@ -8,7 +8,7 @@ export class TikTok extends Script {
   protected page!: Page;
   private metadata!: ShortsMetadata;
 
-  async run(): Promise<string> {
+  async run(): Promise<ScriptResult> {
     this.emit("progress", "start");
 
     this.metadata = this.base_metadata.shorts;
@@ -32,7 +32,10 @@ export class TikTok extends Script {
       (el) => el.href,
     ).catch(() => null);
 
-    return url;
+    return {
+      summary: [url],
+      errors: this.errors,
+    };
   }
 
   private async attachVideo(file: string): Promise<void> {
