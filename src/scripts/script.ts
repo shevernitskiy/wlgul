@@ -1,10 +1,12 @@
 import type { Browser, Page } from "puppeteer";
-import type { Emitter } from "../events/event-manager.ts";
+import type { Emitter, Event } from "../events/event-manager.ts";
 import type { Metadata } from "../metadata.ts";
+import { time } from "../utils/timecodes.ts";
 
 export type ScriptResult = {
   summary: string[];
   errors: string[];
+  ts_start: number;
   // deno-lint-ignore no-explicit-any
   ctx?: any;
 };
@@ -13,12 +15,17 @@ export abstract class Script {
   protected abstract page: Page;
   abstract readonly tag: string;
   errors: string[] = [];
+  protected ts_start: number;
+  protected tsemit: (event: Event, text: string) => void;
 
   constructor(
     protected browser: Browser,
     protected base_metadata: Metadata,
     protected emit: Emitter,
-  ) {}
+  ) {
+    this.ts_start = Date.now();
+    this.tsemit = (event, text) => this.emit(event, `${script_duration(this.ts_start)} | ${text}`);
+  }
 
   abstract run(): Promise<ScriptResult>;
 
@@ -32,16 +39,17 @@ export abstract class Script {
   }
 }
 
+function script_duration(ts_start: number): string {
+  return time(Math.round((Date.now() - ts_start) / 1000));
+}
+
 export function printScriptResult(result: ScriptResult): string {
-  let out = "";
-  if (result.summary.length === 1) {
-    out += `${result.summary[0]}`;
-  }
-  if (result.summary.length > 1) {
-    out += `summary\n${result.summary.map((s) => "• " + s).join("\n")}`;
+  let out = `${script_duration(result.ts_start)}`;
+  if (result.summary.length > 0) {
+    out += `\n${result.summary.map((s) => "• " + s).join("\n")}`;
   }
   if (result.errors.length > 0) {
-    out += `\n• errors\n${result.errors.map((s) => "• " + s).join("\n")}`;
+    out += `\n• errors: ${result.errors.map((s) => "• " + s).join("; ")}`;
   }
   return out;
 }

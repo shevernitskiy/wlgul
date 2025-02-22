@@ -37,6 +37,7 @@ export class YoutubeShorts extends Script {
     return {
       summary: [url],
       errors: this.errors,
+      ts_start: this.ts_start,
     };
   }
 

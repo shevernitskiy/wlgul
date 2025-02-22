@@ -15,7 +15,7 @@ export class Boosty extends Script {
   private timecodes: Timecodes | undefined;
 
   async run(): Promise<ScriptResult> {
-    this.emit("progress", "start");
+    this.tsemit("progress", "start");
     if (!config.boosty.url) {
       throw new Error("url not set, skipping");
     }
@@ -28,7 +28,7 @@ export class Boosty extends Script {
       '[data-test-id="COMMON_TOPMENU_TOPMENURIGHTAUTHORIZED:ROOT"]',
     );
     if (element) {
-      this.emit("progress", "logged in");
+      this.tsemit("progress", "logged in");
     } else {
       throw new Error("not logged in, skipping");
     }
@@ -51,7 +51,7 @@ export class Boosty extends Script {
     }
     if (this.metadata.files) {
       await this.attachVideos(this.splitted_files).catch((err) => {
-        this.errors.push(`failed to attach videos, ${err.message}`);
+        throw new Error("failed to attach videos", err);
       });
     }
     if (this.metadata.teaser) {
@@ -94,17 +94,20 @@ export class Boosty extends Script {
         }`,
       ],
       errors: this.errors,
+      ts_start: this.ts_start,
     };
   }
 
   async setTitle(title: string): Promise<void> {
-    this.emit("progress", "setting title");
+    this.tsemit("progress", "setting title");
     await this.page.locator('[data-test-id="TITLE"]').fill(title);
   }
 
   async attachVideos(files: FilePartsInfo[]): Promise<void> {
+    const TIMEOUT = 300000; // 5 min
+
     for (let i = 0; i < files.length; i++) {
-      this.emit("progress", `attaching video ${i + 1}/${files.length}`);
+      this.tsemit("progress", `attaching video ${i + 1}/${files.length}`);
 
       await this.page.click(
         '[data-test-id="RICHEDITOR:ROOT"] > [class^=Toolbar_toolbar] > [class^=ToolbarButton_wrapper]:nth-of-type(2) > button',
@@ -126,8 +129,10 @@ export class Boosty extends Script {
       await this.page.click('[data-test-id="TITLE"]');
     }
 
-    this.emit("progress", "uploading files");
+    this.tsemit("progress", "uploading files");
 
+    let last_status = "";
+    let last_changed = Date.now();
     let uploadCompleted = false;
     while (!uploadCompleted) {
       const [precentage, size, video] = await Promise.all([
@@ -150,11 +155,20 @@ export class Boosty extends Script {
         for (let i = 0; i < precentage.length; i++) {
           lines.push(`[${i + 1}] ${precentage[i]} (${size[i].replaceAll(" ", "")})`);
         }
-        this.emit("progress", `uploading ${lines.join(", ")}`);
+        const new_status = `uploading ${lines.join(", ")}`;
+        this.tsemit("progress", new_status);
+        if (new_status !== last_status) {
+          last_status = new_status;
+          last_changed = Date.now();
+        }
+      }
+
+      if (Date.now() - last_changed > TIMEOUT) {
+        throw new Error(`upload timeout ${TIMEOUT}ms`);
       }
 
       if (video.length === files.length) {
-        this.emit("progress", "uploaded");
+        this.tsemit("progress", "uploaded");
         uploadCompleted = true;
       } else {
         await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
@@ -166,7 +180,7 @@ export class Boosty extends Script {
     await this.page.waitForSelector("button[class*=VideoPreviewEditor_button]");
     const els = await this.page.$$("button[class*=VideoPreviewEditor_button]");
     for (let i = 0; i < els.length; i++) {
-      this.emit("progress", `setting preview ${i + 1}/${els.length}`);
+      this.tsemit("progress", `setting preview ${i + 1}/${els.length}`);
       const [file_input, _] = await Promise.all([
         this.page.waitForFileChooser(),
         els[i].click(),
@@ -180,7 +194,7 @@ export class Boosty extends Script {
   }
 
   async setTeaser(file: string): Promise<void> {
-    this.emit("progress", `setting teaser`);
+    this.tsemit("progress", `setting teaser`);
     await this.page.waitForSelector('button[data-test-id="TEASERPHOTOBUTTON:button"]');
     const [file_input, _] = await Promise.all([
       this.page.waitForFileChooser(),
@@ -194,7 +208,7 @@ export class Boosty extends Script {
   }
 
   async defferPost(): Promise<void> {
-    this.emit("progress", "deffering post");
+    this.tsemit("progress", "deffering post");
     await this.page.locator("[class^=DateNowOrDeferredSelector_btn]").click();
     await this.page.locator("button.react-calendar__navigation__label").click();
     await this.page.locator("button.react-calendar__navigation__label").click();
@@ -232,14 +246,14 @@ export class Boosty extends Script {
   async setDescription(
     metadata: RecordMetadata,
   ): Promise<void> {
-    this.emit("progress", "setting description");
+    this.tsemit("progress", "setting description");
     await this.page.locator(
       '[data-test-id="RICHEDITOR:EDITOR_JS"] .ce-block:nth-last-of-type(1)',
     ).click();
     let i = 0;
     if (metadata.description) {
       const lines = metadata.description.split("\n");
-      this.emit("progress", `setting description ${++i}/${lines.length}`);
+      this.tsemit("progress", `setting description ${++i}/${lines.length}`);
       for (const line of lines) {
         await this.page.keyboard.press("Enter");
         await this.page.keyboard.type(line.replaceAll("\r", "").trim());
@@ -251,7 +265,7 @@ export class Boosty extends Script {
 
   async setTimecodes(): Promise<void> {
     if (!this.metadata.timecodes || !this.timecodes) return;
-    this.emit("progress", "setting description timecodes");
+    this.tsemit("progress", "setting timecodes");
 
     const timecodes = this.timecodes.toSplitAndShift(
       this.splitted_files.map((file) => file.duration),
@@ -270,19 +284,25 @@ export class Boosty extends Script {
       await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
       await this.page.keyboard.press("Enter");
       await this.page.keyboard.press("Backspace");
+      let k = 0;
       for (const timecode of timecodes[i]) {
+        this.tsemit(
+          "progress",
+          `setting timecodes video ${i + 1}/${els.length}, line ${k + 1}/${timecodes[i].length}`,
+        );
         await this.page.keyboard.type(`${timecode.time} – ${timecode.desc}`);
         await this.page.keyboard.press("Enter");
+        k++;
         await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
       }
     }
   }
 
   async savePost(): Promise<string> {
-    this.emit("progress", "saving post");
+    this.tsemit("progress", "saving post");
     this.page.locator(
       "[class^=PopupContent_block] [class^=MessagePreviewPopup_buttons] button[class*=ContainedButton_colorDefault]",
-    ).setTimeout(5000).click().catch(() => this.emit("progress", "no timecodes popup"));
+    ).setTimeout(5000).click().catch(() => this.tsemit("progress", "no timecodes popup"));
     await this.page.locator(
       'button[data-test-id="COMMON_CONTAINERS_BLOGPOST_BLOGPOSTFORM:PUBLISH_BUTTON"]',
     ).click();
@@ -298,7 +318,7 @@ export class Boosty extends Script {
   }
 
   async addTags(tags: string[]): Promise<void> {
-    this.emit("progress", "adding tags");
+    this.tsemit("progress", "adding tags");
     await this.page.locator("[class^=Tags_body] input").click();
     for (const tag of tags) {
       await this.page.keyboard.type(tag);
@@ -307,7 +327,7 @@ export class Boosty extends Script {
   }
 
   async newPost(): Promise<void> {
-    this.emit("progress", "making new post");
+    this.tsemit("progress", "making new post");
     await this.page.locator('[data-test-id="BLOGLAYOUTWRAPPER:NEW_POST_BUTTON"]')
       .click();
   }
@@ -320,7 +340,7 @@ export class Boosty extends Script {
         this.metadata.boosty.limit,
         this.metadata.boosty.start,
         this.tag,
-        (text) => this.emit("progress", text),
+        (text) => this.tsemit("progress", text),
       );
       out.push(...parts);
     }

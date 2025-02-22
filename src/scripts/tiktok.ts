@@ -35,6 +35,7 @@ export class TikTok extends Script {
     return {
       summary: [url],
       errors: this.errors,
+      ts_start: this.ts_start,
     };
   }
 
