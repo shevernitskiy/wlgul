@@ -306,7 +306,7 @@ export class Boosty extends Script {
     await this.page.locator(
       'button[data-test-id="COMMON_CONTAINERS_BLOGPOST_BLOGPOSTFORM:PUBLISH_BUTTON"]',
     ).click();
-    await this.page.waitForNavigation();
+    await this.page.waitForNavigation().catch(() => this.tsemit("progress", "no post popup"));
 
     return await this.page.evaluate(() => window.location.href.split("/").at(-1) ?? "unknown");
   }

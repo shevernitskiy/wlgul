@@ -49,7 +49,7 @@ export function printScriptResult(result: ScriptResult): string {
     out += `\n${result.summary.map((s) => "• " + s).join("\n")}`;
   }
   if (result.errors.length > 0) {
-    out += `\n• errors: ${result.errors.map((s) => "• " + s).join("; ")}`;
+    out += `\n• errors: ${result.errors.join("; ")}`;
   }
   return out;
 }
