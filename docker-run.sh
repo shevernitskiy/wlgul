@@ -1,6 +1,9 @@
 #!/bin/bash
 
 ENV_FILE=".env"
+CONTAINER="wlgul"
+
+RESULT=$(docker stop $CONTAINER && docker rm $CONTAINER)
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "Error: .env file not found at '$ENV_FILE'"
@@ -45,4 +48,5 @@ docker run -t --env-file .env \
   --mount type=bind,source="$METADATA_ABSOLUTE",target=/app/metadata.toml \
   --mount type=bind,source="$USERDATA_ABSOLUTE",target=/app/data \
   --mount type=bind,source="$CONTENT_ABSOLUTE",target=/app/content \
+  --name $CONTAINER \
   ghcr.io/shevernitskiy/wlgul:latest . "$@"
