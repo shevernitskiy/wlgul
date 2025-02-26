@@ -107,6 +107,7 @@ export class Boosty extends Script {
     const TIMEOUT = 300000; // 5 min
 
     for (let i = 0; i < files.length; i++) {
+      const k = i === 0 ? i : files.length - i;
       this.tsemit("progress", `attaching video ${i + 1}/${files.length}`);
 
       await this.page.click(
@@ -124,7 +125,7 @@ export class Boosty extends Script {
       if (!file_input) {
         throw new Error("file input not found");
       }
-      await file_input.accept([files[i].file]);
+      await file_input.accept([files[k].file]);
       this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
       // await this.page.click(
       //   '[data-test-id="RICHEDITOR:ROOT"] .ce-block:last-child',
