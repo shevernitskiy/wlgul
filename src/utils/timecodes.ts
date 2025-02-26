@@ -110,4 +110,71 @@ export class Timecodes {
 
     return out;
   }
+
+  toSplitAndShift2(
+    part_duration: number[],
+    start_offset: string,
+  ): Timecode[][] {
+    if (part_duration.length === 0) {
+      return [];
+    }
+
+    const start_offset_s = offset(start_offset);
+
+    const timecodes = this.parsed.map((item) => {
+      return {
+        ...item,
+        offset: item.offset - start_offset_s,
+      };
+    });
+
+    const parts: Timecode[][] = [];
+    let currentOffset = 0;
+    let timecodeIndex = 0;
+
+    for (const duration of part_duration) {
+      const part: Timecode[] = [];
+      const partEndOffset = currentOffset + duration;
+      const partStartOffset = currentOffset; // Store the part's starting offset
+
+      while (timecodeIndex < timecodes.length && timecodes[timecodeIndex].offset < partEndOffset) {
+        const originalTimecode = timecodes[timecodeIndex];
+        const adjustedOffset = originalTimecode.offset - partStartOffset;
+
+        if (adjustedOffset < 0) {
+          timecodeIndex++;
+          continue;
+        }
+        part.push({
+          time: time(adjustedOffset),
+          desc: originalTimecode.desc,
+          offset: adjustedOffset,
+        });
+        timecodeIndex++;
+      }
+      parts.push(part);
+      currentOffset = partEndOffset;
+    }
+
+    let prev_part: Timecode = {
+      time: time(0),
+      desc: "Начало",
+      offset: 0,
+    };
+    for (const [i, part] of parts.entries()) {
+      if (i === 0) {
+        prev_part = part.length > 0 ? part.at(-1)! : {
+          time: time(0),
+          desc: "Начало",
+          offset: 0,
+        };
+        continue;
+      } else {
+        parts[i].unshift({ ...prev_part, time: time(0), offset: 0 });
+        prev_part = part.at(-1)!;
+      }
+    }
+
+    return parts;
+  }
 }

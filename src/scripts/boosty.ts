@@ -126,7 +126,9 @@ export class Boosty extends Script {
       }
       await file_input.accept([files[i].file]);
       this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-      await this.page.click('[data-test-id="TITLE"]');
+      // await this.page.click(
+      //   '[data-test-id="RICHEDITOR:ROOT"] .ce-block:last-child',
+      // );
     }
 
     this.tsemit("progress", "uploading files");
@@ -267,7 +269,7 @@ export class Boosty extends Script {
     if (!this.metadata.timecodes || !this.timecodes) return;
     this.tsemit("progress", "setting timecodes");
 
-    const timecodes = this.timecodes.toSplitAndShift(
+    const timecodes = this.timecodes.toSplitAndShift2(
       this.splitted_files.map((file) => file.duration),
       this.metadata.boosty.start,
     );
@@ -334,11 +336,11 @@ export class Boosty extends Script {
 
   async splitFiles(): Promise<FilePartsInfo[]> {
     const out: FilePartsInfo[] = [];
-    for (const file of this.metadata.files) {
+    for (const [index, file] of this.metadata.files.entries()) {
       const parts = await splitVideoByLimits(
         file,
         this.metadata.boosty.limit,
-        this.metadata.boosty.start,
+        index === 0 ? this.metadata.boosty.start : "00:00:00",
         this.tag,
         (text) => this.tsemit("progress", text),
       );

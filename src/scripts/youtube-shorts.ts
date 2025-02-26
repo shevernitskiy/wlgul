@@ -25,7 +25,7 @@ export class YoutubeShorts extends Script {
       ...this.metadata.tags,
       ...this.metadata.default_tags,
     ]);
-    if (this.metadata.youtube.playlist) {
+    if (this.metadata.youtube?.playlist) {
       await this.setPlaylist(this.metadata.youtube.playlist);
     }
     await this.setKidsRadio();
