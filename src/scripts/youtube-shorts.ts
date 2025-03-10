@@ -11,20 +11,17 @@ export class YoutubeShorts extends Script {
   async run(): Promise<ScriptResult> {
     this.emit("progress", "start");
 
-    if (!config.youtube.url) {
+    if (!config.youtube.shorts.url) {
       throw new Error("url not set, skipping");
     }
 
     this.metadata = this.base_metadata.shorts;
     this.page = await this.createDefaultPage(this.browser);
-    await this.page.goto(config.youtube.url);
+    await this.page.goto(config.youtube.shorts.url);
 
     await this.attachVideo(this.metadata.file);
     await this.setTitle(this.metadata.title, this.metadata.tags);
-    await this.setDescription(this.metadata.description, [
-      ...this.metadata.tags,
-      ...this.metadata.default_tags,
-    ]);
+    await this.setDescription(this.metadata.description, [...this.metadata.tags, ...this.metadata.default_tags]);
     if (this.metadata.youtube?.playlist) {
       await this.setPlaylist(this.metadata.youtube.playlist);
     }
@@ -100,10 +97,9 @@ export class YoutubeShorts extends Script {
 
   private async setKidsRadio(): Promise<void> {
     this.emit("progress", "setting kids radio");
-    const is_kids = await this.page.$eval(
-      '[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]',
-      (el) => el.textContent,
-    ).catch(() => [null]);
+    const is_kids = await this.page
+      .$eval('[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]', (el) => el.textContent)
+      .catch(() => [null]);
     if (is_kids) {
       await this.page.locator('[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]').click();
     }
@@ -116,10 +112,7 @@ export class YoutubeShorts extends Script {
 
     this.emit("progress", "uploading");
     while (true) {
-      const text = await this.page.$eval(
-        "span.ytcp-video-upload-progress",
-        (el) => el.textContent,
-      ).catch(() => [null]);
+      const text = await this.page.$eval("span.ytcp-video-upload-progress", (el) => el.textContent).catch(() => [null]);
       if (text) {
         this.emit("progress", `uploading ${text}`);
       }

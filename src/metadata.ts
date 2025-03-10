@@ -12,14 +12,21 @@ export type RecordMetadata = {
   platforms: string[];
   files: string[];
   title: string;
-  description: string | null;
   timecodes: string | null;
   preview: string | null;
   teaser: string | null;
-  tags: string[];
   boosty: {
     start: string;
     limit: string;
+    description: string | null;
+    tags: string[];
+  };
+  youtube: {
+    start: string;
+    limit: string;
+    description: string | null;
+    tags: string[];
+    default_tags: string[];
   };
 };
 
@@ -45,26 +52,17 @@ if (!Deno.env.get("CONTENT")) {
   throw new Error("CONTENT env is required");
 }
 
-const metadata_path = Deno.env.get("WLGUL_DOCKER")
-  ? "./metadata.toml"
-  : (Deno.env.get("METADATA") ?? "");
+const metadata_path = Deno.env.get("WLGUL_DOCKER") ? "./metadata.toml" : Deno.env.get("METADATA") ?? "";
 
-const content_path = Deno.env.get("WLGUL_DOCKER") ? "./content" : (
-  Deno.env.get("CONTENT") ?? ""
-);
+const content_path = Deno.env.get("WLGUL_DOCKER") ? "./content" : Deno.env.get("CONTENT") ?? "";
 
-export async function getMetadata(
-  args: Record<string, string>,
-  emit: Emitter,
-): Promise<Metadata> {
-  if (!(existsSync(metadata_path))) {
+export async function getMetadata(args: Record<string, string>, emit: Emitter): Promise<Metadata> {
+  if (!existsSync(metadata_path)) {
     emit("fail", "metadata file not found");
     Deno.exit(1);
   }
 
-  const metadata = parse(
-    await Deno.readTextFile(metadata_path),
-  ) as Metadata;
+  const metadata = parse(await Deno.readTextFile(metadata_path)) as Metadata;
 
   if (args.record) {
     if (!metadata.record.files) {
@@ -74,7 +72,7 @@ export async function getMetadata(
     const files: string[] = [];
     for (const file of metadata.record.files) {
       const record_file = join(content_path, file);
-      if (!(existsSync(record_file))) {
+      if (!existsSync(record_file)) {
         emit("fail", `file not found: ${record_file}`);
         Deno.exit(1);
       } else {
@@ -84,7 +82,7 @@ export async function getMetadata(
     metadata.record.files = files;
     if (metadata.record.preview) {
       const preview_file = join(content_path, metadata.record.preview);
-      if (!(existsSync(preview_file))) {
+      if (!existsSync(preview_file)) {
         emit("fail", `incorrect preview file: ${preview_file}`);
         Deno.exit(1);
       } else {
@@ -93,7 +91,7 @@ export async function getMetadata(
     }
     if (metadata.record.teaser) {
       const teaser_file = join(content_path, metadata.record.teaser);
-      if (!(existsSync(teaser_file))) {
+      if (!existsSync(teaser_file)) {
         emit("fail", `incorrect teaser file: ${teaser_file}`);
         Deno.exit(1);
       } else {
@@ -107,6 +105,17 @@ export async function getMetadata(
       metadata.record.boosty = {
         start: "00:00:00",
         limit: "24:00:00",
+        description: null,
+        tags: [],
+      };
+    }
+    if (!metadata.record.youtube) {
+      metadata.record.youtube = {
+        start: "00:00:00",
+        limit: "12:00:00",
+        description: null,
+        tags: [],
+        default_tags: [],
       };
     }
   }
@@ -117,7 +126,7 @@ export async function getMetadata(
       Deno.exit(1);
     }
     const shorts_file = join(content_path, metadata.shorts.file);
-    if (!(existsSync(shorts_file))) {
+    if (!existsSync(shorts_file)) {
       emit("fail", `file not found: ${shorts_file}`);
       Deno.exit(1);
     } else {

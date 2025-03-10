@@ -3,15 +3,27 @@
 platforms = ["boosty"]
 files = ["videoclip1.mp4"] # file in content dir from .env
 title = "Это просто запись стрима"
-description = "Это просто описание записи стрима"
 timecodes = """
 00:00:00 – Заставка с оригинальной озвучкой
 00:13:34 – Начало стрима. Общение
 """
 preview = "image.jpg"
 teaser = "teaser.jpg"
+
+[record.boosty]
+start = "00:00:00"
+limit = "12:00:00"
+description = "Это просто описание записи стрима"
 tags = ["записи стримов"]
-boosty = { start = "00:00:00", limit = "05:00:00" }
+
+[record.youtube]
+start = "00:00:00"
+limit = "05:00:00"
+description = """
+Привет! Спасибо за просмотр!
+"""
+tags = ["#sometag"]
+default_tags = ["#стрим", "#записьстрима", "#welovegames"]
 
 # aviable platrforms: tiktok, vk, youtube
 [shorts]

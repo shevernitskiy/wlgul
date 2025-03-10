@@ -13,6 +13,7 @@ import { Boosty } from "./scripts/boosty.ts";
 import { TikTok } from "./scripts/tiktok.ts";
 import { VkClip } from "./scripts/vkclip.ts";
 import { YoutubeShorts } from "./scripts/youtube-shorts.ts";
+import { YoutubeRecord } from "./scripts/youtube-record.ts";
 
 export const ScriptsMap: {
   [key: string]: {
@@ -22,6 +23,7 @@ export const ScriptsMap: {
 } = {
   record: {
     boosty: Boosty,
+    youtube: YoutubeRecord,
   },
   shorts: {
     tiktok: TikTok,
@@ -44,12 +46,8 @@ async function main(): Promise<void> {
   system("log", "start");
   let need_login = args.login || false;
 
-  const userdata = normalize(
-    Deno.env.get("WLGUL_DOCKER") ? "./data" : (
-      Deno.env.get("USERDATA") ?? "./data"
-    ),
-  );
-  if (!(existsSync(userdata))) {
+  const userdata = normalize(Deno.env.get("WLGUL_DOCKER") ? "./data" : Deno.env.get("USERDATA") ?? "./data");
+  if (!existsSync(userdata)) {
     await Deno.mkdir(userdata);
     need_login = true;
     system("log", "no userdata found, login required");
@@ -60,13 +58,15 @@ async function main(): Promise<void> {
     userDataDir: userdata,
     browser: "chrome",
     slowMo: 50, // TODO: pass it from env
-    args: need_login ? ["--disable-blink-features=AutomationControlled"] : [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      // "--disable-web-security",
-      "--disable-features=IsolateOrigins,site-per-process",
-      "--disable-blink-features=AutomationControlled",
-    ],
+    args: need_login
+      ? ["--disable-blink-features=AutomationControlled"]
+      : [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          // "--disable-web-security",
+          "--disable-features=IsolateOrigins,site-per-process",
+          "--disable-blink-features=AutomationControlled",
+        ],
   });
 
   if (need_login) {
@@ -87,9 +87,10 @@ async function main(): Promise<void> {
     system("log", pipeline);
     for (const platform of metadata[pipeline].platforms) {
       const emit: Emitter = (event, text) => event_manager.emit(platform, event, text);
-      if (ScriptsMap[pipeline][platform as keyof typeof ScriptsMap[typeof pipeline]]) {
+      if (ScriptsMap[pipeline][platform as keyof (typeof ScriptsMap)[typeof pipeline]]) {
         const script = new ScriptsMap[pipeline][platform](browser, metadata, emit);
-        await script.run()
+        await script
+          .run()
           .then((result) => emit("success", printScriptResult(result)))
           .catch((e: Error) => emit("fail", e.message));
       } else {
