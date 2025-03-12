@@ -61,6 +61,9 @@ export class YoutubeRecord extends Script {
       await this.setKidsRadio().catch((err) => {
         this.errors.push(`failed to kids radio button, ${err.message}`);
       });
+      await this.setChangedContent().catch((err) => {
+        this.errors.push(`failed to set changed content, ${err.message}`);
+      });
       await this.checkUploadStatus().catch((err) => {
         this.errors.push(`failed to check upload status, ${err.message}`);
       });
@@ -186,6 +189,19 @@ export class YoutubeRecord extends Script {
       await this.page.locator('[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]').click();
     }
     this.emit("progress", "kids radio done");
+  }
+
+  private async setChangedContent(): Promise<void> {
+    this.emit("progress", `setting changed content [${this.current_file_index}]`);
+    const is_changed = await this.page
+      .$eval('[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]', (el) => el.textContent)
+      .catch(() => [null]);
+    if (is_changed) {
+      await this.page.locator("#toggle-button button").click();
+      await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
+      await this.page.locator('.altered-content-options [name="VIDEO_HAS_ALTERED_CONTENT_NO"] #radioContainer').click();
+    }
+    this.emit("progress", "changed content done");
   }
 
   private async checkUploadStatus(): Promise<void> {
