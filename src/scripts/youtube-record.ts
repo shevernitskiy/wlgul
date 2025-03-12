@@ -39,28 +39,47 @@ export class YoutubeRecord extends Script {
       this.page = await this.createDefaultPage(this.browser);
       await this.page.goto(config.youtube.record.url);
 
-      await this.attachVideo(file.file);
+      await this.attachVideo(file.file).catch((err) => {
+        throw new Error(`failed to attach video, ${err.message}`);
+      });
       await this.setTitle(
         this.metadata.title + (this.splitted_files.length > 1 ? ` Часть ${this.current_file_index}` : ""),
-      );
+      ).catch((err) => {
+        this.errors.push(`failed to set title, ${err.message}`);
+      });
       if (this.metadata.youtube.description && this.metadata.youtube.description.length > 0) {
         await this.setDescription(this.composeDescription(index), [
           ...this.metadata.youtube.tags,
           ...this.metadata.youtube.default_tags,
-        ]);
+        ]).catch((err) => {
+          this.errors.push(`failed to set description, ${err.message}`);
+        });
       }
       // if (this.metadata.youtube?.playlist) {
       //   await this.setPlaylist(this.metadata.youtube.playlist);
       // }
-      await this.setKidsRadio();
-      await this.checkUploadStatus();
+      await this.setKidsRadio().catch((err) => {
+        this.errors.push(`failed to kids radio button, ${err.message}`);
+      });
+      await this.checkUploadStatus().catch((err) => {
+        this.errors.push(`failed to check upload status, ${err.message}`);
+      });
       if (this.metadata.preview) {
-        await this.setPreview(this.metadata.preview);
+        await this.setPreview(this.metadata.preview).catch((err) => {
+          this.errors.push(`failed to set preview, ${err.message}`);
+        });
       }
-      await this.gotoVisibility();
+      await this.gotoVisibility().catch((err) => {
+        this.errors.push(`failed to goto vivibilty, ${err.message}`);
+      });
       await this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
-      await this.setPrivate();
-      const url = await this.savePost();
+      await this.setPrivate().catch((err) => {
+        this.errors.push(`failed to set private, ${err.message}`);
+      });
+      const url = await this.savePost().catch((err) => {
+        this.errors.push(`failed save post, ${err.message}`);
+        return "";
+      });
       urls.push(url);
     }
 
