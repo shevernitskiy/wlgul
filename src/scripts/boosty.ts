@@ -49,7 +49,7 @@ export class Boosty extends Script {
     }
     if (this.metadata.files) {
       await this.attachVideos(this.splitted_files).catch((err) => {
-        throw new Error("failed to attach videos", err);
+        throw new Error("failed to attach videos", err.message);
       });
     }
     if (this.metadata.teaser) {
@@ -104,31 +104,25 @@ export class Boosty extends Script {
   async attachVideos(files: FilePartsInfo[]): Promise<void> {
     const TIMEOUT = 300000; // 5 min
 
-    for (let i = 0; i < files.length; i++) {
-      const k = i === 0 ? i : files.length - i;
-      this.tsemit("progress", `attaching video ${i + 1}/${files.length}`);
+    this.tsemit("progress", `attaching videos`);
 
-      await this.page.click(
-        '[data-test-id="RICHEDITOR:ROOT"] > [class^=Toolbar_toolbar] > [class^=ToolbarButton_wrapper]:nth-of-type(2) > button',
-      );
-      await this.page.waitForSelector(
+    await this.page.click(
+      '[data-test-id="RICHEDITOR:ROOT"] > [class^=Toolbar_toolbar] > [class^=ToolbarButton_wrapper]:nth-of-type(2) > button',
+    );
+    await this.page.waitForSelector(
+      '[data-test-id="RICHEDITOR:ROOT"] button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]',
+    );
+    const [file_input, _] = await Promise.all([
+      this.page.waitForFileChooser(),
+      this.page.click(
         '[data-test-id="RICHEDITOR:ROOT"] button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]',
-      );
-      const [file_input, _] = await Promise.all([
-        this.page.waitForFileChooser(),
-        this.page.click(
-          '[data-test-id="RICHEDITOR:ROOT"] button[class^=ToolbarTooltip_button] span[class^=ToolbarTooltip_sizeLimit]',
-        ),
-      ]);
-      if (!file_input) {
-        throw new Error("file input not found");
-      }
-      await file_input.accept([files[k].file]);
-      this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
-      // await this.page.click(
-      //   '[data-test-id="RICHEDITOR:ROOT"] .ce-block:last-child',
-      // );
+      ),
+    ]);
+    if (!file_input) {
+      throw new Error("file input not found");
     }
+    await file_input.accept(files.map((item) => item.file));
+    this.page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
 
     this.tsemit("progress", "uploading files");
 
