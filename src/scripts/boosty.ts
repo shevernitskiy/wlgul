@@ -57,11 +57,11 @@ export class Boosty extends Script {
         this.errors.push(`failed to set teaser, ${err.message}`);
       });
     }
-    if (this.metadata.preview && this.metadata.files.length > 0) {
-      await this.setPreview(this.metadata.preview).catch((err) => {
-        this.errors.push(`failed to set preview, ${err.message}`);
-      });
-    }
+    // if (this.metadata.preview && this.metadata.files.length > 0) {
+    //   await this.setPreview(this.metadata.preview).catch((err) => {
+    //     this.errors.push(`failed to set preview, ${err.message}`);
+    //   });
+    // }
     if (this.metadata.boosty.tags) {
       await this.addTags(this.metadata.boosty.tags).catch((err) => {
         this.errors.push(`failed to add tags, ${err.message}`);
@@ -126,6 +126,7 @@ export class Boosty extends Script {
 
     this.tsemit("progress", "uploading files");
 
+    let start_time = Date.now();
     let last_status = "";
     let last_changed = Date.now();
     let uploadCompleted = false;
@@ -155,7 +156,7 @@ export class Boosty extends Script {
         throw new Error(`upload timeout ${TIMEOUT}ms`);
       }
 
-      if (video.length === files.length) {
+      if (video.length === files.length || (Date.now() - start_time > 10000 && precentage.length === 0)) {
         this.tsemit("progress", "uploaded");
         uploadCompleted = true;
       } else {
